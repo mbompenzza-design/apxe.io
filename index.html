@@ -251,3 +251,47 @@
                         <span class="score-badge">ИИ-СКОРИНГ: 9.4 / 10</span>
                     </div>
                     <div class="candidate-meta">Профиль: ://linkedin.com | Класс: Seeker (Рефлексирующий)</div>
+Профиль: linkedin.com
+Мотивация: "Хочу сохранить паттерны мышления для своих детей до того, как прогрессирующая болезнь заберет память и я перестану быть собой."
+
+
+ОДОБРИТЬ ИНВАЙТ
+ОТКЛОНИТЬ
+
+
+
+
+// Механика открытия админки по 5 тапам на сферу
+let clickCount = 0;
+function countAdminClicks() {
+clickCount++;
+if (clickCount === 5) {
+document.getElementById('userContent').style.display = 'none';
+document.getElementById('adminContent').style.display = 'block';
+document.getElementById('brandLogo').innerHTML = 'APXe // CORE ADMIN';
+document.getElementById('brandLogo').style.color = '#00ff66';
+document.getElementById('securityStatus').innerHTML = '[ ROOT / ACCESS GRANTED ]';
+document.getElementById('securityStatus').style.color = '#00ff66';
+clickCount = 0;
+}
+}
+// Логика интерфейса лендинга
+function toggleWaitlist() {
+const section = document.getElementById('waitlistSection');
+section.style.display = section.style.display === 'block' ? 'none' : 'block';
+if(section.style.display === 'block') {
+window.scrollTo(0, document.body.scrollHeight);
+}
+}
+function submitApplication() {
+alert("Запрос принят. Номер в очереди: #14,842. ИИ-модератор обрабатывает когнитивный профиль.");
+document.getElementById('waitlistSection').style.display = 'none';
+}
+// Логика админ-панели
+function approveApplicant() {
+alert("Инвайт сгенерирован и отправлен кандидату.");
+document.getElementById('applicantBox').style.opacity = '0.3';
+}
+function rejectApplicant() {
+document.getElementById('applicantBox').style.display = 'none';
+}
