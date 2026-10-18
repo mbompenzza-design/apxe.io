@@ -7,6 +7,16 @@
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Courier New', Courier, monospace; }
         body { background-color: #050505; color: #ffffff; padding: 40px; min-height: 100vh; }
+        
+        /* Стили экрана авторизации */
+        .auth-screen { display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 80vh; text-align: center; }
+        .auth-title { font-size: 14px; color: #666; letter-spacing: 2px; margin-bottom: 30px; animation: pulse-text 2s infinite; }
+        .auth-input { background: transparent; border: none; border-bottom: 1px solid #222; color: #00ff66; padding: 10px; font-size: 16px; text-align: center; letter-spacing: 3px; width: 280px; transition: border-color 0.3s; margin-bottom: 20px; }
+        .auth-input:focus { outline: none; border-color: #00ff66; }
+        .btn-auth { background: #ffffff; color: #000; border: none; padding: 10px 20px; font-size: 11px; font-weight: bold; letter-spacing: 1px; cursor: pointer; }
+
+        /* Скрытый контент админки */
+        .admin-wrapper { display: none; animation: fadeIn 0.5s ease; }
         header { width: 100%; padding: 20px 0; display: flex; justify-content: space-between; font-size: 12px; letter-spacing: 2px; border-bottom: 1px solid rgba(255, 255, 255, 0.05); margin-bottom: 40px; }
         .admin-title { color: #00ff66; font-weight: bold; }
         .root-tag { color: #00ff66; }
@@ -25,36 +35,64 @@
         .btn-approve { background: #00ff66; color: #00; border: none; padding: 12px 25px; font-size: 11px; font-weight: bold; letter-spacing: 1px; cursor: pointer; }
         .btn-reject { background: transparent; color: #ff3333; border: 1px solid #ff3333; padding: 12px 25px; font-size: 11px; letter-spacing: 1px; cursor: pointer; }
         .applicant-card { transition: opacity 0.5s ease; }
+        
+        @keyframes pulse-text { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
 <body>
-    <header>
-        <div class="admin-title">APXe // CORE ADMIN</div>
-        <div class="root-tag">[ ROOT / ACCESS GRANTED ]</div>
-    </header>
-    <main>
-        <div class="metrics-grid">
-            <div class="metric-card"><div class="metric-title">Лист ожидания</div><div class="metric-value">1,482</div></div>
-            <div class="metric-card"><div class="metric-title">Активные Ядра</div><div class="metric-value">42</div></div>
-            <div class="metric-card"><div class="metric-title">Кристаллизовано</div><div class="metric-value">3</div></div>
-            <div class="metric-card"><div class="metric-title">Доход (MRR)</div><div class="metric-value">$840</div></div>
-        </div>
-        <div class="queue-section" id="applicantBox">
-            <div class="queue-header">ОЧЕРЕДЬ СКОРИНГА ИИ // РЕКОМЕНДОВАНО К ОДОБРЕНИЮ</div>
-            <div class="applicant-card">
-                <div class="applicant-info">
-                    <p><span>Кандидат:</span> Алексей В. <span class="score-tag">Скоринг: 9.4/10</span><span class="type-tag">Seeker</span></p>
-                    <p><span>Профиль:</span> ://linkedin.com</p>
-                    <p><span>Мотивация:</span> "Хочу сохранить паттерны мышления для своих детей до того, как прогрессирующая болезнь заберет память и я перестану быть собой."</p>
-                </div>
-                <div class="admin-actions">
-                    <button class="btn-approve" onclick="approveApplicant()">ОДОБРИТЬ ИНВАЙТ</button>
-                    <button class="btn-reject" onclick="rejectApplicant()">ОТКЛОНИТЬ</button>
+
+    <!-- ЭКРАН ВВОДА ПАРОЛЯ -->
+    <div class="auth-screen" id="authScreen">
+        <div class="auth-title">[ APXe.SYSTEM // AUTHENTICATION REQUIRED ]</div>
+        <input type="password" class="auth-input" id="passwordField" placeholder="ENTER ACCESS KEY" onkeydown="if(event.key === 'Enter') verifyPassword()">
+        <button class="btn-auth" onclick="verifyPassword()">ACCESS</button>
+    </div>
+
+    <!-- ОСНОВНОЙ КОНТЕНТ АДМИНКИ (СКРЫТ ПО УМОЛЧАНИЮ) -->
+    <div class="admin-wrapper" id="adminWrapper">
+        <header>
+            <div class="admin-title">APXe // CORE ADMIN</div>
+            <div class="root-tag">[ ROOT / ACCESS GRANTED ]</div>
+        </header>
+        <main>
+            <div class="metrics-grid">
+                <div class="metric-card"><div class="metric-title">Лист ожидания</div><div class="metric-value">1,482</div></div>
+                <div class="metric-card"><div class="metric-title">Активные Ядра</div><div class="metric-value">42</div></div>
+                <div class="metric-card"><div class="metric-title">Кристаллизовано</div><div class="metric-value">3</div></div>
+                <div class="metric-card"><div class="metric-title">Доход (MRR)</div><div class="metric-value">$840</div></div>
+            </div>
+            <div class="queue-section" id="applicantBox">
+                <div class="queue-header">ОЧЕРЕДЬ СКОРИНГА ИИ // РЕКОМЕНДОВАНО К ОДОБРЕНИЮ</div>
+                <div class="applicant-card">
+                    <div class="applicant-info">
+                        <p><span>Кандидат:</span> Алексей В. <span class="score-tag">Скоринг: 9.4/10</span><span class="type-tag">Seeker</span></p>
+                        <p><span>Профиль:</span> ://linkedin.com</p>
+                        <p><span>Мотивация:</span> "Хочу сохранить паттерны мышления для своих детей до того, как прогрессирующая болезнь заберет память и я перестану быть собой."</p>
+                    </div>
+                    <div class="admin-actions">
+                        <button class="btn-approve" onclick="approveApplicant()">ОДОБРИТЬ ИНВАЙТ</button>
+                        <button class="btn-reject" onclick="rejectApplicant()">ОТКЛОНИТЬ</button>
+                    </div>
                 </div>
             </div>
-        </div>
-    </main>
+        </main>
+    </div>
+
     <script>
+        // Проверка вашего секретного ключа
+        function verifyPassword() {
+            const password = document.getElementById('passwordField').value;
+            // Ваш установленный пароль
+            if (password === 'WAUzzz4nf') {
+                document.getElementById('authScreen').style.display = 'none';
+                document.getElementById('adminWrapper').style.display = 'block';
+            } else {
+                alert('[ ACCESS DENIED: INVALID KEY ]');
+                document.getElementById('passwordField').value = '';
+            }
+        }
+
         function approveApplicant() {
             alert("Инвайт сгенерирован и отправлен кандидату.");
             document.getElementById('applicantBox').style.opacity = '0.3';
