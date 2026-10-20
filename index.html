@@ -278,9 +278,9 @@
         }
 
         // Отправка данных анкеты в Telegram фаундера
-        function submitApplication() {
-            const TELEGRAM_BOT_TOKEN = "8703363873:AAH1H63ArId5uhvClZImbxq3DMVezKeLzms"; 
-            const TELEGRAM_CHAT_ID = "-1004310447665"; 
+                function submitApplication() {
+            // ВСТАВЬТЕ СЮДА ВАШУ СКОПИРОВАННУЮ ССЫЛКУ ИЗ MAKE.COM
+            const WEBHOOK_URL = "https://hook.us2.make.com/jimlylx3x6b5q165t6lph4qpb0nkx26h"; 
 
             const name = document.getElementById('clientName').value;
             const social = document.getElementById('clientSocial').value;
@@ -292,23 +292,16 @@
                 return;
             }
 
-            // Структурирование лога для вашего закрытого чата
-            const message = `⚡️ <b>НОВАЯ АНКЕТА APXe</b>\n\n` +
-                            `👤 <b>Имя:</b> ${name}\n` +
-                            `🌐 <b>Профиль:</b> ${social}\n\n` +
-                            `🧠 <b>Мотивация:</b>\n<i>"${reason}"</i>`;
-
-            const url = `https://telegram.org{TELEGRAM_BOT_TOKEN}/sendMessage`;
-
-                        fetch(url, {
+            // Отправляем чистый JSON на вебхук без CORS ограничений
+            fetch(WEBHOOK_URL, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    chat_id: TELEGRAM_CHAT_ID,
-                    text: message,
-                    parse_mode: "HTML"
+                    name: name,
+                    social: social,
+                    reason: reason
                 })
-            }) // <-- Скобка должна быть только здесь!
+            })
             .then(response => {
                 if (response.ok) {
                     alert("Ваш запрос принят в обработку контуром ИИ-скоринга. Текущий номер в очереди: #14,842. Результат верификации будет отправлен на указанный вами профиль.");
@@ -328,6 +321,6 @@
                 console.error("Ошибка:", error);
                 alert("Ошибка соединения с шлюзом безопасности.");
             });
-        }
-    </script>
-    
+                }
+        
+       
