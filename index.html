@@ -275,14 +275,13 @@
             }
         }
 
-        // Контур математической маски для инвайтов
-
-        // Контур авто-проверки на 13 символов
+        // Контур авто-детекта инвайта
 const field = document.getElementById('inviteField');
+field.removeAttribute('maxlength'); // Снимаем все лимиты на длину
+
 field.addEventListener('input', function() {
     const code = this.value.trim().toUpperCase();
-    if (code.length !== 13) return;
-    if (code.startsWith('APX-')) {
+    if (code.startsWith('APX-') && code.length >= 7) {
         const last = code.slice(-2);
         const d1 = parseInt(last[0], 10);
         const d2 = parseInt(last[1], 10);
@@ -291,9 +290,10 @@ field.addEventListener('input', function() {
             return;
         }
     }
-    alert("КРИТИЧЕСКАЯ ОШИБКА: Код деактивирован.");
 });
         
+
+
         
 
         // Отправка данных анкеты в Telegram фаундера через Make.com
