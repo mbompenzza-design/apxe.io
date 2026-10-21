@@ -55,7 +55,7 @@
             position: relative;
         }
 
-        /* Элемент 1: Пульсирующая 3D сфера ядра */
+        /* Пульсирующая 3D сфера ядра (Строгий Монохром) */
         .core-sphere {
             width: 150px;
             height: 150px;
@@ -240,7 +240,6 @@
         <!-- Блок ввода -->
         <div class="invite-container">
             <input type="text" class="invite-input" placeholder="INVITE CODE" maxlength="12" id="inviteField">
-            <!-- Кнопка открытия анкеты изменена на тип button, чтобы не перезагружать страницу -->
             <button type="button" class="btn-waitlist" onclick="toggleWaitlist()">Подать заявку в лист ожидания →</button>
         </div>
 
@@ -262,7 +261,7 @@
         </div>
     </main>
 
-        <script>
+    <script>
         // Скрипт плавного открытия и закрытия анкеты
         function toggleWaitlist() {
             const section = document.getElementById('waitlistSection');
@@ -276,49 +275,62 @@
             }
         }
 
+        // Контур математической маски для инвайтов
+        document.getElementById('inviteField').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                const code = this.value.trim().toUpperCase();
+                if (code.length === 12 && code.startsWith('APX-')) {
+                    const lastTwo = code.slice(-2);
+                    const digit1 = parseInt(lastTwo.charAt(0), 10);
+                    const digit2 = parseInt(lastTwo.charAt(1), 10);
+                    
+                    if (!isNaN(digit1) && !isNaN(digit2) && (digit1 + digit2 === 9)) {
+                        alert("ДОСТУП В КОНТУР РАЗРЕШЕН. Инициализация Ядра...");
+                        window.location.href = "https://t.me"; // Целевая ссылка на TWA бота калибровки
+                        return;
+                    }
+                }
+                alert("КРИТИЧЕСКАЯ ОШИБКА: Инвайт-код не найден в контуре безопасности или деактивирован.");
+            }
+        });
+
         // Отправка данных анкеты в Telegram фаундера через Make.com
         function submitApplication() {
-            const WEBHOOK_URL = "https://hook.us2.make.com/jimlylx3x6b5q165t6lph4qpb0nkx26h"; 
+            const WEBHOOK_URL = "https://make.com"; 
 
-            const name = document.getElementById('clientName').value;
-            const social = document.getElementById('clientSocial').value;
-            const reason = document.getElementById('clientReason').value;
+            const nameValue = document.getElementById('clientName').value.trim();
+            const socialValue = document.getElementById('clientSocial').value.trim();
+            const reasonValue = document.getElementById('clientReason').value.trim();
 
-            // Простая проверка на заполненность полей перед отправкой
-            if (!name || !social || !reason) {
-                alert("Пожалуйста, заполните все поля анкеты для прохождения ИИ-скоринга.");
-                return;
-            }
-
-            // Отправляем чистый JSON на вебхук без CORS ограничений
-            fetch(WEBHOOK_URL, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    name: name,
-                    social: social,
-                    reason: reason
-                })
-            })
-            .then(response => {
-                if (response.ok) {
-                    alert("Ваш запрос принят в обработку контуром ИИ-скоринга. Текущий номер в очереди: #14,842. Результат верификации будет отправлен на указанный вами профиль.");
-                    
-                    // Очистка полей
-                    document.getElementById('clientName').value = "";
-                    document.getElementById('clientSocial').value = "";
-                    document.getElementById('clientReason').value = "";
-                    
-                    // Скрытие формы
-                    document.getElementById('waitlistSection').style.display = 'none';
-                } else {
-                    alert("Ошибка контура отправки. Пожалуйста, попробуйте позже.");
-                }
-            })
-            .catch(error => {
-                console.error("Ошибка:", error);
-                alert("Ошибка соединения с шлюзом безопасности.");
-            });
-        }
-        </script>
-        
+            // Машинная блокировка пустых полей
+            if (!nameValue || !socialValue || !reasonValue) {
+                alert("КРИТИЧЕСКАЯ ОШИБКА: Протокол не инициализирован. Ожидание ввода метаданных.");
+        return;
+}
+fetch(WEBHOOK_URL, {
+method: "POST",
+headers: { "Content-Type": "application/json" },
+body: JSON.stringify({
+name: nameValue,
+social: socialValue,
+reason: reasonValue
+})
+}
+.then(response => {
+if (response.ok) {
+// Генератор элитарного листа ожидания (строго от 51 до 99)
+const randomQueue = Math.floor(Math.random() * (99 - 51 + 1)) + 51;
+alert(КОНТУР ПРИНЯТ. ИИ-скоринг активирован. Порядковый номер в листе фиксации: #0${randomQueue}. Ожидайте верификацию социального графа.);
+document.getElementById('clientName').value = "";
+document.getElementById('clientSocial').value = "";
+document.getElementById('clientReason').value = "";
+document.getElementById('waitlistSection').style.display = 'none';
+} else {
+alert("СИСТЕМНЫЙ СБОЙ: Отказ сетевого шлюза. Повторите цикл запроса.");
+}
+})
+.catch(error => {
+console.error("Ошибка:", error);
+alert("ОТКАЗ БЕЗОПАСНОСТИ: Контур заблокирован CORS/Брандмауэром на носителе.");
+});
+    }
