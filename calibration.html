@@ -17,9 +17,12 @@
         header { display: flex; justify-content: space-between; width: 100%; font-size: 11px; letter-spacing: 1px; color: #154545; border-bottom: 1px solid rgba(0,255,150,0.05); padding-bottom: 15px; }
         .status-active { color: #00ffcc; text-shadow: 0 0 8px rgba(0,255,200,0.4); animation: blink 1.5s infinite; }
 
-        .log-container { position: absolute; left: 20px; top: 120px; max-width: 320px; height: 200px; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; }
-        .log-item { font-size: 10px; color: #00aa99; margin-bottom: 6px; letter-spacing: 0.5px; opacity: 0; transform: translateX(-10px); animation: logIn 0.4s forwards; }
-        .log-item span { color: #fff; text-shadow: 0 0 4px #00ffcc; }
+        /* Контейнер для свободно летающих тегов ИИ */
+        #floating-logs { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1.5; pointer-events: none; overflow: hidden; }
+        
+        /* Стиль живого тега с эффектом плавного растворения за 5 секунд */
+        .ai-tag { position: absolute; font-size: 10px; color: #00aa99; letter-spacing: 0.5px; white-space: nowrap; transform: translate(-51%, -50%); opacity: 0; animation: floatAndFade 5s linear forwards; }
+        .ai-tag span { color: #fff; text-shadow: 0 0 4px #00ffcc; }
 
         .tracker-box { width: 100%; background: rgba(2,10,10,0.9); border: 1px solid rgba(0,255,200,0.1); padding: 20px; backdrop-filter: blur(10px); border-radius: 4px; }
         .tracker-info { display: flex; justify-content: space-between; font-size: 11px; letter-spacing: 1px; color: #008877; margin-bottom: 10px; }
@@ -31,7 +34,14 @@
         .btn-audio-init.active { border-color: #00ffcc; color: #00ffcc; background: rgba(0,255,200,0.05); }
 
         @keyframes blink { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
-        @keyframes logIn { to { opacity: 1; transform: translateX(0); } }
+        
+        /* Анимация для тегов: плавное появление, небольшой дрейф вверх и растворение к 5-й секунде */
+        @keyframes floatAndFade {
+            0% { opacity: 0; transform: translate(-50%, -50%) translateY(10px); }
+            15% { opacity: 0.8; }
+            75% { opacity: 0.6; }
+            100% { opacity: 0; transform: translate(-50%, -50%) translateY(-20px); }
+        }
     </style>
 </head>
 <body>
@@ -40,13 +50,14 @@
         <canvas id="coreCanvas"></canvas>
     </div>
 
+    <!-- Слой для летающих комментариев -->
+    <div id="floating-logs"></div>
+
     <div class="ui-layer">
         <header>
             <div id="versionTag">APXe // QUANTUM_CORE</div>
             <div class="status-active">[ СКАНИРОВАНИЕ РАЗУМА ]</div>
         </header>
-
-        <div class="log-container" id="logContainer"></div>
 
         <div class="tracker-box interactive">
             <div class="tracker-info">
@@ -86,78 +97,91 @@
         resizeCanvas();
 
         // Параметры анимации ядра
-        let rotationAngle = 0;
+        let mainRotation = 0;
+        let innerRotation = 0;
         let pulseRadius = 90;
         let audioModifier = 0; 
+        let globalTime = 0;
 
-        // Массив лучей данных вокруг кольца
+        // Массив утолщенных лучей (вращение замедлено в 4 раза)
         const particles = [];
-        for (let i = 0; i < 40; i++) {
+        for (let i = 0; i < 35; i++) {
             particles.push({
                 angle: Math.random() * Math.PI * 2,
-                length: 30 + Math.random() * 70,
-                speed: 0.01 + Math.random() * 0.02,
-                opacity: 0.2 + Math.random() * 0.5
+                length: 40 + Math.random() * 60,
+                speed: (0.01 + Math.random() * 0.015) / 4, // Медленнее в 4 раза
+                opacity: 0.3 + Math.random() * 0.4,
+                waveOffset: Math.random() * 100 // Смещение для перелива
             });
         }
 
-        // --- ГЛАВНАЯ ФУНКЦИЯ ОТРИСОВКИ КОЛЬЦА ---
+        // --- ФУНКЦИЯ ОТРИСОВКИ КОНТУРА ЯДРА ---
         function drawCyberCore() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
+            globalTime += 0.05;
             
             const centerX = canvas.width / 2;
             const centerY = canvas.height / 2;
             
-            // Динамический радиус, зависящий от голоса
+            // Динамический радиус, зависящий от микрофона
             const currentRadius = pulseRadius + (audioModifier * 40);
             
-            // 1. Внешнее неоновое свечение (Glow)
-            ctx.shadowBlur = 20;
+            // Свечение неонового контура
+            ctx.shadowBlur = 25;
             ctx.shadowColor = '#00ffcc';
             
-            // 2. Отрисовка лучей данных из референса
+            // 1. Утолщенные лучи с пульсацией и переливом по направлению К СФЕРЕ
             particles.forEach(p => {
                 p.angle += p.speed * (1 + audioModifier * 2);
+                
                 const startX = centerX + Math.cos(p.angle) * currentRadius;
                 const startY = centerY + Math.sin(p.angle) * currentRadius;
                 const endX = centerX + Math.cos(p.angle) * (currentRadius + p.length);
                 const endY = centerY + Math.sin(p.angle) * (currentRadius + p.length);
                 
+                // Создаем линейный градиент вдоль луча, чтобы пустить волну к центру
+                const gradient = ctx.createLinearGradient(endX, endY, startX, startY);
+                
+                // Бегущая фаза пульсации (эффект втягивания к сфере)
+                let wavePosition = (globalTime * 0.4 + p.waveOffset * 0.01) % 1;
+                let nextPos = (wavePosition + 0.2) % 1;
+                
+                gradient.addColorStop(0, `rgba(0, 200, 180, ${p.opacity * 0.2})`);
+                gradient.addColorStop(wavePosition, `rgba(0, 255, 200, ${p.opacity})`);
+                gradient.addColorStop(nextPos, `rgba(255, 255, 255, ${p.opacity * 1.5})`);
+                gradient.addColorStop(1, `rgba(0, 255, 200, ${p.opacity * 0.3})`);
+                
                 ctx.beginPath();
-                ctx.strokeStyle = `rgba(0, 255, 210, ${p.opacity})`;
-                ctx.lineWidth = 1.5;
+                ctx.strokeStyle = gradient;
+                ctx.lineWidth = 3.0; // Сделано толще
                 ctx.moveTo(startX, startY);
                 ctx.lineTo(endX, endY);
                 ctx.stroke();
             });
             
-            // 3. Основное орбитальное кольцо ядра
+            // 2. Главное орбитальное кольцо (в 2 раза шире)
             ctx.beginPath();
             ctx.arc(centerX, centerY, currentRadius, 0, Math.PI * 2);
             ctx.strokeStyle = '#00ffcc';
-            ctx.lineWidth = 3;
+            ctx.lineWidth = 6; // В 2 раза шире
             ctx.stroke();
             
-            // 4. Внутреннее технологическое кольцо (пунктирное)
+            // 3. Второе внутреннее кольцо (в 3 раза тоньше, вращается в обратную сторону)
             ctx.save();
             ctx.translate(centerX, centerY);
-            rotationAngle += 0.005 + (audioModifier * 0.02);
-            ctx.rotate(-rotationAngle);
+            innerRotation -= 0.008 + (audioModifier * 0.02); // Минус — вращение обратно
+            ctx.rotate(innerRotation);
             ctx.beginPath();
-            ctx.arc(0, 0, currentRadius - 15, 0, Math.PI * 2);
-            ctx.setLineDash([8, 15]);
-            ctx.strokeStyle = 'rgba(0, 255, 200, 0.4)';
-            ctx.lineWidth = 1.5;
+            ctx.arc(0, 0, currentRadius - 20, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(0, 255, 200, 0.7)';
+            ctx.lineWidth = 2; // В 3 раза тоньше главного
             ctx.stroke();
             ctx.restore();
             
-            // Сброс тени для оптимизации производительности интерфейса
-            ctx.shadowBlur = 0;
-            
+            ctx.shadowBlur = 0; // Сброс тени
             requestAnimationFrame(drawCyberCore);
         }
         
-        // Запуск рендер-петли кольца
         drawCyberCore();
                 // --- СИНХРОНИЗАЦИЯ ГОЛОСА И МИКРОФОНА ---
         let audioContext, analyser, dataArray;
@@ -170,7 +194,7 @@
                 .then(stream => {
                     audioContext = new (window.AudioContext || window.webkitAudioContext)();
                     analyser = audioContext.createAnalyser();
-                    analyser.fftSize = 32; // Высокая скорость отклика для кольца
+                    analyser.fftSize = 32;
                     
                     const source = audioContext.createMediaStreamSource(stream);
                     source.connect(analyser);
@@ -182,15 +206,11 @@
                     btn.innerText = "РЕЧЕВОЙ КОНТУР СИНХРОНИЗИРОВАН";
                     btn.classList.add('active');
                     
-                    // Постоянно считываем уровень звука для деформации кольца
                     function updateAudioData() {
                         if (!isAudioInitialized) return;
                         analyser.getByteFrequencyData(dataArray);
                         let sum = 0;
-                        for (let i = 0; i < dataArray.length; i++) {
-                            sum += dataArray[i];
-                        }
-                        // Вычисляем коэффициент громкости от 0 до 1
+                        for (let i = 0; i < dataArray.length; i++) { sum += dataArray[i]; }
                         audioModifier = sum / dataArray.length / 255;
                         requestAnimationFrame(updateAudioData);
                     }
@@ -203,7 +223,7 @@
                 });
         }
 
-        // --- КОНТУР ИИ-ЛОГОВ И ПРОГРЕССА ---
+        // --- КОНТУР РАНДОМНЫХ ХАОТИЧНЫХ ТЕГОВ ---
         const aiMarkers = [
             `[Юзер: <span>${userTag}</span> -> Анализ паттернов]`,
             "[Смысловой маркер: <span>Фигура отца -> Архетип Защитника</span>]",
@@ -216,22 +236,31 @@
             "[Безопасность: <span>Шифрование данных алгоритмом E2EE</span>]"
         ];
 
-        let progress = 0;
-        const logContainer = document.getElementById('logContainer');
-
-        function addLogItem() {
+        // Функция рождения тегов в случайных точках вокруг сферы
+        function spawnFloatingTag() {
             if (!isAudioInitialized) return;
-            const text = aiMarkers[Math.floor(Math.random() * aiMarkers.length)];
-            const item = document.createElement('div');
-            item.className = 'log-item';
-            item.innerHTML = text;
-            logContainer.appendChild(item);
-
-            if (logContainer.childNodes.length > 6) {
-                logContainer.removeChild(logContainer.firstChild);
-            }
+            
+            const container = document.getElementById('floating-logs');
+            const tag = document.createElement('div');
+            tag.className = 'ai-tag';
+            tag.innerHTML = aiMarkers[Math.floor(Math.random() * aiMarkers.length)];
+            
+            // Расчет случайных координат вокруг центра экрана
+            const angle = Math.random() * Math.PI * 2;
+            const distance = 140 + Math.random() * 80; // Дистанция за пределами колец
+            const x = (window.innerWidth / 2) + Math.cos(angle) * distance;
+            const y = (window.innerHeight / 2) + Math.sin(angle) * distance;
+            
+            tag.style.left = `${x}px`;
+            tag.style.top = `${y}px`;
+            
+            container.appendChild(tag);
+            
+            // Удаляем элемент строго через 5 секунд после окончания анимации
+            setTimeout(() => { tag.remove(); }, 5000);
         }
 
+        let progress = 0;
         function startSimulation() {
             const interval = setInterval(() => {
                 if (progress < 100) {
@@ -242,7 +271,8 @@
                     document.getElementById('progressPercent').innerText = progress.toFixed(1) + "%";
                     document.getElementById('progressBar').style.width = progress + "%";
                     
-                    if (Math.random() > 0.5) addLogItem();
+                    // Запуск хаотичного всплытия тегов
+                    if (Math.random() > 0.4) spawnFloatingTag();
                 } else {
                     clearInterval(interval);
                     document.getElementById('progressPercent').innerText = "100% ФИКСАЦИЯ";
