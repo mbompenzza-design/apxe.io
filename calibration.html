@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>APXe — Контур Калибровки</title>
+    <!-- SDK и графическая библиотека -->
+    <script src="https://telegram.org"></script>
+    <script src="https://cloudflare.com"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Courier New', Courier, monospace; user-select: none; }
+        body, html { width: 100%; height: 100%; background-color: #030303; color: #ffffff; overflow: hidden; }
+        
+        #canvas-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
+        
+        .ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 2; pointer-events: none; display: flex; flex-direction: column; justify-content: space-between; padding: 30px 20px; }
+        .interactive { pointer-events: auto; }
+
+        header { display: flex; justify-content: space-between; width: 100%; font-size: 11px; letter-spacing: 1px; color: #555; border-bottom: 1px solid rgba(255,255,255,0.02); padding-bottom: 15px; }
+        .status-active { color: #00ff66; text-shadow: 0 0 5px rgba(0,255,102,0.3); animation: blink 1.5s infinite; }
+
+        .log-container { position: absolute; left: 20px; top: 120px; max-width: 320px; height: 200px; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; }
+        .log-item { font-size: 10px; color: #888; margin-bottom: 6px; letter-spacing: 0.5px; opacity: 0; transform: translateX(-10px); animation: logIn 0.4s forwards; }
+        .log-item span { color: #fff; font-weight: bold; }
+
+        .tracker-box { width: 100%; background: rgba(5,5,5,0.85); border: 1px solid rgba(255,255,255,0.04); padding: 20px; backdrop-filter: blur(10px); border-radius: 4px; }
+        .tracker-info { display: flex; justify-content: space-between; font-size: 11px; letter-spacing: 1px; color: #666; margin-bottom: 10px; }
+        .progress-bar-bg { width: 100%; height: 2px; background: rgba(255,255,255,0.05); position: relative; overflow: hidden; }
+        .progress-bar-fill { width: 0%; height: 100%; background: #ffffff; transition: width 0.5s ease; box-shadow: 0 0 8px #fff; }
+
+        .btn-audio-init { background: transparent; border: 1px solid #333; color: #fff; padding: 15px; width: 100%; font-size: 12px; letter-spacing: 2px; cursor: pointer; transition: all 0.3s; margin-top: 15px; font-weight: bold; }
+        .btn-audio-init:hover { background: #fff; color: #000; border-color: #fff; }
+        .btn-audio-init.active { border-color: rgba(0,255,102,0.3); color: #00ff66; background: rgba(0,255,102,0.02); }
+
+        @keyframes blink { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
+        @keyframes logIn { to { opacity: 1; transform: translateX(0); } }
+    </style>
+</head>
+<body>
+
+    <div id="canvas-container"></div>
+
+    <div class="ui-layer">
+        <header>
+            <div id="versionTag">APXe // CORE_CALIBRATION</div>
+            <div class="status-active">[ СКАНИРОВАНИЕ РАЗУМА ]</div>
+        </header>
+
+        <div class="log-container" id="logContainer"></div>
+
+        <div class="tracker-box interactive">
+            <div class="tracker-info">
+                <div>КРИСТАЛЛИЗАЦИЯ МЕНТАЛЬНОГО СЛЕПКА</div>
+                <div id="progressPercent">0.0%</div>
+            </div>
+            <div class="progress-bar-bg">
+                <div class="progress-bar-fill" id="progressBar"></div>
+            </div>
+            <button class="btn-audio-init" id="audioBtn" onclick="initAudioCircuit()">ИНИЦИИРОВАТЬ АУДИОКОНТУР</button>
+        </div>
+    </div>
+
+    <script>
+        // Здесь начнется логика. Пока оставляем тег скрипта открытым.
+        // --- СВЯЗКА С TELEGRAM WEB APP SDK ---
+        const tg = window.Telegram?.WebApp;
+        let userTag = "[GUEST]";
+        
+        if (tg) {
+            tg.ready();
+            tg.expand(); // Открываем приложение на весь экран смартфона
+            if (tg.initDataUnsafe?.user?.username) {
+                userTag = `@${tg.initDataUnsafe.user.username}`;
+            } else if (tg.initDataUnsafe?.user?.first_name) {
+                userTag = tg.initDataUnsafe.user.first_name;
+            }
+            document.getElementById('versionTag').innerText = `APXe // CORE // ${userTag.toUpperCase()}`;
+        }
+
+        // --- НАСТРОЙКА ГРАФИКИ THREE.JS ---
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x030303, 0.015);
+
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.z = 4;
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        container.appendChild(renderer.domElement);
+
+        // Внешний каркас Ядра (Икосаэдр)
+        const geometry = new THREE.IcosahedronGeometry(1.4, 3);
+        const material = new THREE.MeshBasicMaterial({
+            color: 0xffffff,
+            wireframe: true,
+            transparent: true,
+            opacity: 0.13
+        });
+        const coreSphere = new THREE.Mesh(geometry, material);
+        scene.add(coreSphere);
+
+        // Внутреннее облако точек (веса личности)
+        const pointsGeometry = new THREE.IcosahedronGeometry(1.38, 4);
+        const pointsMaterial = new THREE.PointsMaterial({
+            color: 0xaaaaaa,
+            size: 0.015,
+            transparent: true,
+            opacity: 0.35
+        });
+        const corePoints = new THREE.Points(pointsGeometry, pointsMaterial);
+        scene.add(corePoints);
+
+        // Кэшируем исходные координаты вершин для последующей деформации от голоса
+        const positionAttribute = geometry.attributes.position;
+        const originalPositions = [];
+        for (let i = 0; i < positionAttribute.count; i++) {
+            originalPositions.push(new THREE.Vector3().fromBufferAttribute(positionAttribute, i));
+        }
+        // --- РАБОТА С МИКРОФОНОМ (WEB AUDIO API) ---
+        let audioContext, analyser, dataArray;
+        let isAudioInitialized = false;
+
+        function initAudioCircuit() {
+            if (isAudioInitialized) return;
+
+            navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+                .then(stream => {
+                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    analyser = audioContext.createAnalyser();
+                    analyser.fftSize = 64; // Оптимизировано для быстрой работы на смартфона
+                    
+                    const source = audioContext.createMediaStreamSource(stream);
+                    source.connect(analyser);
+                    
+                    dataArray = new Uint8Array(analyser.frequencyBinCount);
+                    isAudioInitialized = true;
+                    
+                    const btn = document.getElementById('audioBtn');
+                    btn.innerText = "РЕЧЕВОЙ КОНТУР СИНХРОНИЗИРОВАН";
+                    btn.classList.add('active');
+                    
+                    startSimulation();
+                })
+                .catch(err => {
+                    console.error("Доступ к микрофону заблокирован:", err);
+                    alert("Контуру требуется доступ к микрофону для фиксации речевых частот основы.");
+                });
+        }
+
+        // --- ДИНАМИЧЕСКИЕ ТЕГИ И СИМУЛЯЦИЯ СКОРИНГА ---
+        const aiMarkers = [
+            `[Юзер: <span>${userTag}</span> -> Анализ паттернов]`,
+            "[Смысловой маркер: <span>Фигура отца -> Архетип Защитника</span>]",
+            "[Лингво-структура: <span>Сложный синтаксический паттерн</span>]",
+            "[Психо-метрика: <span>Высокий порог когнитивной эмпатии</span>]",
+            "[Логический контур: <span>Рационализация кризисных состояний</span>]",
+            "[Смысловой маркер: <span>Экзистенциальный вектор развития</span>]",
+            "[Голосовой маркер: <span>Частотные модуляции зафиксированы</span>]",
+            "[Веса личности: <span>Генерация уникального RAG-вектора</span>]",
+            "[Безопасность: <span>Шифрование данных алгоритмом E2EE</span>]"
+        ];
+
+        let progress = 0;
+        const logContainer = document.getElementById('logContainer');
+
+        function addLogItem() {
+            if (!isAudioInitialized) return;
+            const text = aiMarkers[Math.floor(Math.random() * aiMarkers.length)];
+            const item = document.createElement('div');
+            item.className = 'log-item';
+            item.innerHTML = text;
+            logContainer.appendChild(item);
+
+            if (logContainer.childNodes.length > 6) {
+                logContainer.removeChild(logContainer.firstChild);
+            }
+        }
+
+        function startSimulation() {
+            const interval = setInterval(() => {
+                if (progress < 100) {
+                    // Прогресс замедляется к концу для создания эффекта вычислений
+                    const increment = Math.max(0.08, (100 - progress) * 0.04);
+                    progress += Math.random() * increment;
+                    if (progress > 100) progress = 100;
+                    
+                    document.getElementById('progressPercent').innerText = progress.toFixed(1) + "%";
+                    document.getElementById('progressBar').style.width = progress + "%";
+                    
+                    if (Math.random() > 0.5) addLogItem();
+                } else {
+                    clearInterval(interval);
+                    document.getElementById('progressPercent').innerText = "100% ФИКСАЦИЯ";
+                    document.getElementById('audioBtn').innerText = "ЯДРО ДЕПОНИРОВАНО";
+                    
+                    // Безопасный экспорт данных обратно в Telegram-бот
+                    setTimeout(() => {
+                        if (tg) {
+                            tg.sendData(JSON.stringify({ status: "crystallized", user: userTag }));
+                            tg.close();
+                        }
+                    }, 2000);
+                }
+            }, 700);
+        }
+        // --- РЕНДЕР-ПЕТЛЯ И ДИНАМИЧЕСКАЯ ДЕФОРМАЦИЯ ЯДРА ---
+        const clock = new THREE.Clock();
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const time = clock.getElapsedTime();
+            let audioScale = 0;
+
+            // Расчет амплитуды звука
+            if (isAudioInitialized && analyser) {
+                analyser.getByteFrequencyData(dataArray);
+                let sum = 0;
+                for (let i = 0; i < dataArray.length; i++) {
+                    sum += dataArray[i];
+                }
+                audioScale = sum / dataArray.length / 255; // Значение от 0 до 1
+            }
+
+            // Медленное вращение ядра в пространстве
+            coreSphere.rotation.y = time * 0.06;
+            coreSphere.rotation.x = time * 0.03;
+            corePoints.rotation.y = -time * 0.04;
+
+            // Audio-Reactive: изменение формы сферы от голоса
+            const positions = geometry.attributes.position;
+            for (let i = 0; i < positions.count; i++) {
+                const vertex = originalPositions[i].clone();
+                // Генерируем 3D волну на основе времени и звуковых частот
+                const wave = Math.sin(vertex.x * 2.5 + time * 3) * Math.cos(vertex.y * 2.5 + time * 2) * (audioScale * 0.7);
+                // Смещаем вершины сферы наружу по их нормалям
+                vertex.addScaledVector(originalPositions[i].clone().normalize(), wave);
+                positions.setXYZ(i, vertex.x, vertex.y, vertex.z);
+            }
+            positions.needsUpdate = true;
+
+            // Свечение каркаса становится ярче на пиках речи
+            material.opacity = 0.1 + (audioScale * 0.35);
+
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+        // Адаптация под изменение размеров экрана смартфона
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
