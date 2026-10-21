@@ -277,22 +277,26 @@
 
         // Контур математической маски для инвайтов
         document.getElementById('inviteField').addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                const code = this.value.trim().toUpperCase();
-                if (code.length === 12 && code.startsWith('APX-')) {
-                    const lastTwo = code.slice(-2);
-                    const digit1 = parseInt(lastTwo.charAt(0), 10);
-                    const digit2 = parseInt(lastTwo.charAt(1), 10);
-                    
-                    if (!isNaN(digit1) && !isNaN(digit2) && (digit1 + digit2 === 9)) {
-                        alert("ДОСТУП В КОНТУР РАЗРЕШЕН. Инициализация Ядра...");
-                        window.location.href = "https://t.me"; // Целевая ссылка на TWA бота калибровки
-                        return;
-                    }
-                }
-                alert("КРИТИЧЕСКАЯ ОШИБКА: Инвайт-код не найден в контуре безопасности или деактивирован.");
+    if (e.key === 'Enter') {
+        const code = this.value.trim().toUpperCase();
+        if (code.length === 12 && code.startsWith('APX-')) {
+            const lastTwo = code.slice(-2);
+            const digit1 = parseInt(lastTwo[0], 10);
+            const digit2 = parseInt(lastTwo[1], 10);
+            
+            // Математическая маска: сумма последних двух цифр должна быть равна 9
+            if (!isNaN(digit1) && !isNaN(digit2) && (digit1 + digit2 === 9)) {
+                alert("ДОСТУП В КОНТУР РАЗРЕШЕН. Инициализация Ядра...");
+                
+                // ВАЖНО: Перенаправляем на соседний файл калибровки
+                window.location.href = "./calibration.html"; 
+                return;
             }
-        });
+        }
+        alert("КРИТИЧЕСКАЯ ОШИБКА: Инвайт-код не найден в контуре безопасности или деактивирован.");
+    }
+});
+        
 
         // Отправка данных анкеты в Telegram фаундера через Make.com
         function submitApplication() {
