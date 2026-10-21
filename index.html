@@ -307,30 +307,35 @@
                 alert("КРИТИЧЕСКАЯ ОШИБКА: Протокол не инициализирован. Ожидание ввода метаданных.");
         return;
 }
-fetch(WEBHOOK_URL, {
-method: "POST",
-headers: { "Content-Type": "application/json" },
-body: JSON.stringify({
-name: nameValue,
-social: socialValue,
-reason: reasonValue
-})
-}
-.then(response => {
-if (response.ok) {
-// Генератор элитарного листа ожидания (строго от 51 до 99)
-const randomQueue = Math.floor(Math.random() * (99 - 51 + 1)) + 51;
-alert(КОНТУР ПРИНЯТ. ИИ-скоринг активирован. Порядковый номер в листе фиксации: #0${randomQueue}. Ожидайте верификацию социального графа.);
-document.getElementById('clientName').value = "";
-document.getElementById('clientSocial').value = "";
-document.getElementById('clientReason').value = "";
-document.getElementById('waitlistSection').style.display = 'none';
-} else {
-alert("СИСТЕМНЫЙ СБОЙ: Отказ сетевого шлюза. Повторите цикл запроса.");
-}
-})
-.catch(error => {
-console.error("Ошибка:", error);
-alert("ОТКАЗ БЕЗОПАСНОСТИ: Контур заблокирован CORS/Брандмауэром на носителе.");
-});
-    }
+            // Отправляем чистый JSON на вебхук без CORS ограничений
+            fetch(WEBHOOK_URL, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    name: nameValue,
+                    social: socialValue,
+                    reason: reasonValue
+                })
+            })
+            .then(response => {
+                if (response.ok) {
+                    // Генератор элитарного листа ожидания (строго от 51 до 99)
+                    const randomQueue = Math.floor(Math.random() * (99 - 51 + 1)) + 51;
+                    
+                    alert(`КОНТУР ПРИНЯТ. ИИ-скоринг активирован. Порядковый номер в листе фиксации: #0${randomQueue}. Ожидайте верификацию социального графа.`);
+                    
+                    document.getElementById('clientName').value = "";
+                    document.getElementById('clientSocial').value = "";
+                    document.getElementById('clientReason').value = "";
+                    document.getElementById('waitlistSection').style.display = 'none';
+                } else {
+                    alert("СИСТЕМНЫЙ СБОЙ: Отказ сетевого шлюза. Повторите цикл запроса.");
+                }
+            })
+            .catch(error => {
+                console.error("Ошибка:", error);
+                alert("ОТКАЗ БЕЗОПАСНОСТИ: Контур заблокирован CORS/Брандмауэром на носителе.");
+            });
+        }
+    </script>
+    
