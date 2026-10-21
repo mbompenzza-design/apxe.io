@@ -276,26 +276,24 @@
         }
 
         // Контур математической маски для инвайтов
-        document.getElementById('inviteField').addEventListener('keypress', function(e) {
-    if (e.key === 'Enter') {
-        const code = this.value.trim().toUpperCase();
-        if (code.length === 12 && code.startsWith('APX-')) {
-            const lastTwo = code.slice(-2);
-            const digit1 = parseInt(lastTwo[0], 10);
-            const digit2 = parseInt(lastTwo[1], 10);
-            
-            // Математическая маска: сумма последних двух цифр должна быть равна 9
-            if (!isNaN(digit1) && !isNaN(digit2) && (digit1 + digit2 === 9)) {
-                alert("ДОСТУП В КОНТУР РАЗРЕШЕН. Инициализация Ядра...");
-                
-                // ВАЖНО: Перенаправляем на соседний файл калибровки
-                window.location.href = "./calibration.html"; 
-                return;
-            }
+
+        // Контур авто-проверки на 13 символов
+const field = document.getElementById('inviteField');
+field.addEventListener('input', function() {
+    const code = this.value.trim().toUpperCase();
+    if (code.length !== 13) return;
+    if (code.startsWith('APX-')) {
+        const last = code.slice(-2);
+        const d1 = parseInt(last[0], 10);
+        const d2 = parseInt(last[1], 10);
+        if (!isNaN(d1) && !isNaN(d2) && (d1 + d2 === 9)) {
+            window.location.href = "./calibration.html";
+            return;
         }
-        alert("КРИТИЧЕСКАЯ ОШИБКА: Инвайт-код не найден в контуре безопасности или деактивирован.");
     }
+    alert("КРИТИЧЕСКАЯ ОШИБКА: Код деактивирован.");
 });
+        
         
 
         // Отправка данных анкеты в Telegram фаундера через Make.com
