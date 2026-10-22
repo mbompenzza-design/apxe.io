@@ -19,8 +19,8 @@
 
         #floating-logs { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1.5; pointer-events: none; overflow: hidden; }
         
-        /* Живые изумрудные теги */
-        .ai-tag { position: absolute; font-size: 10px; color: #00aa44; letter-spacing: 0.5px; white-space: nowrap; transform: translate(-50%, -50%); opacity: 0; animation: floatAndFade 5s linear forwards; }
+        /* Безопасные адаптивные теги */
+        .ai-tag { position: absolute; font-size: 10px; color: #00aa44; letter-spacing: 0.5px; white-space: nowrap; transform: translate(-50%, -50%); opacity: 0; animation: floatAndFade 5s linear forwards; text-align: center; }
         .ai-tag span { color: #fff; text-shadow: 0 0 4px #00ff66; }
 
         .tracker-box { width: 100%; background: rgba(1,10,5,0.95); border: 1px solid rgba(0,255,102,0.1); padding: 20px; backdrop-filter: blur(10px); border-radius: 4px; }
@@ -35,10 +35,10 @@
         @keyframes blink { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
         
         @keyframes floatAndFade {
-            0% { opacity: 0; transform: translate(-50%, -50%) translateY(10px); }
-            15% { opacity: 0.8; }
-            80% { opacity: 0.5; }
-            100% { opacity: 0; transform: translate(-50%, -50%) translateY(-25px); }
+            0% { opacity: 0; transform: translate(-50%, -50%) translateY(5px); }
+            15% { opacity: 0.85; }
+            80% { opacity: 0.6; }
+            100% { opacity: 0; transform: translate(-50%, -50%) translateY(-15px); }
         }
     </style>
 </head>
@@ -95,18 +95,18 @@
 
         // Параметры анимации крупного ядра
         let innerRotation = 0;
-        let pulseRadius = 140; // Возвращен крупный масштаб
+        let pulseRadius = 140; 
         let audioModifier = 0; 
         let globalTime = 0;
 
-        // Массив редких и очень широких лучей (в 2 раза меньше штук, в 2 раза толще)
+        // Генерация фиксированных позиций под лучи (18 секторов)
         const particles = [];
         for (let i = 0; i < 18; i++) {
             particles.push({
-                angle: (i / 18) * Math.PI * 2 + Math.random() * 0.2, // Равномерное распределение
+                angle: (i / 18) * Math.PI * 2, // Фиксированный угол без вращения
                 length: 50 + Math.random() * 50,
-                speed: (0.005 + Math.random() * 0.008) / 4, // Медленное благородное вращение
-                opacity: 0.4 + Math.random() * 0.4,
+                life: Math.random() * 5, // Случайная начальная фаза жизни [0..5 сек]
+                maxOpacity: 0.5 + Math.random() * 0.4,
                 waveOffset: Math.random() * 100
             });
         }
@@ -118,12 +118,10 @@
             
             const centerX = canvas.width / 2;
             const centerY = canvas.height / 2;
-            
             const currentRadius = pulseRadius + (audioModifier * 45);
             
-            // 1. ОТРИСОВКА ЖИВОГО ИЗУМРУДНОГО ТУМАНА (ДЫМА) НА ФОНЕ
+            // 1. ЖИВОЙ ИЗУМРУДНЫЙ ТУМАН (ДЫМ)
             ctx.save();
-            // Медленная пульсация плотности дыма во времени
             let smokePulse = Math.sin(globalTime * 0.3) * 0.05 + 0.15;
             let smokeGlow = ctx.createRadialGradient(centerX, centerY, 10, centerX, centerY, currentRadius * 2.5);
             smokeGlow.addColorStop(0, `rgba(0, 255, 102, ${smokePulse})`);
@@ -134,14 +132,24 @@
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             ctx.restore();
 
-            // Эффект яркого неонового свечения
             ctx.shadowBlur = 30;
             ctx.shadowColor = '#00ff66';
             
-            // 2. Широкие лучи с переливом К СФЕРЕ (Толщина х2, количество /2)
+            // 2. ОТРИСОВКА МЕРЦАЮЩИХ ЛУЧЕЙ (ЖИЗНЬ И УГАСАНИЕ ЗА 5 СЕКУНД)
             particles.forEach(p => {
-                p.angle += p.speed * (1 + audioModifier * 2.5);
+                // Увеличиваем время жизни луча (примерно 0.05 секунды за кадр)
+                p.life += 0.03;
                 
+                // Рассчитываем альфа-канал на основе 5-секундного цикла
+                let cycleProgress = (p.life % 5) / 5; // Значение от 0 до 1
+                let opacityFactor = Math.sin(cycleProgress * Math.PI); // Плавный взлет и угасание
+                let currentOpacity = p.maxOpacity * opacityFactor;
+                
+                // Если луч переродился в новом цикле — хаотично меняем длину
+                if (p.life % 5 < 0.03) {
+                    p.length = 50 + Math.random() * 50;
+                }
+
                 const startX = centerX + Math.cos(p.angle) * currentRadius;
                 const startY = centerY + Math.sin(p.angle) * currentRadius;
                 const endX = centerX + Math.cos(p.angle) * (currentRadius + p.length);
@@ -152,40 +160,39 @@
                 let wavePosition = (globalTime * 0.35 + p.waveOffset * 0.01) % 1;
                 let nextPos = (wavePosition + 0.15) % 1;
                 
-                gradient.addColorStop(0, `rgba(0, 200, 80, ${p.opacity * 0.1})`);
-                gradient.addColorStop(wavePosition, `rgba(0, 255, 102, ${p.opacity})`);
-                gradient.addColorStop(nextPos, `rgba(255, 255, 255, ${p.opacity * 1.6})`);
-                gradient.addColorStop(1, `rgba(0, 255, 102, ${p.opacity * 0.2})`);
+                gradient.addColorStop(0, `rgba(0, 200, 80, 0)`);
+                gradient.addColorStop(wavePosition, `rgba(0, 255, 102, ${currentOpacity})`);
+                gradient.addColorStop(nextPos, `rgba(255, 255, 255, ${currentOpacity * 1.6})`);
+                gradient.addColorStop(1, `rgba(0, 255, 102, ${currentOpacity * 0.2})`);
                 
                 ctx.beginPath();
                 ctx.strokeStyle = gradient;
-                ctx.lineWidth = 6.0; // В 2 раза толще
+                ctx.lineWidth = 6.0; // Плотные широкие лучи
                 ctx.moveTo(startX, startY);
                 ctx.lineTo(endX, endY);
                 ctx.stroke();
             });
             
-            // 3. Главное орбитальное кольцо (Широкое изумрудное)
+            // 3. Главное орбитальное кольцо (Широкое)
             ctx.beginPath();
             ctx.arc(centerX, centerY, currentRadius, 0, Math.PI * 2);
-            ctx.strokeStyle = '#00ff66'; // Насыщенный изумруд
+            ctx.strokeStyle = '#00ff66';
             ctx.lineWidth = 6;
             ctx.stroke();
             
-            // 4. Второе внутреннее кольцо (Пульсирует по синусоиде + обратное вращение)
+            // 4. Второе внутреннее кольцо (Пульсация + обратное вращение)
             ctx.save();
             ctx.translate(centerX, centerY);
             innerRotation -= 0.006 + (audioModifier * 0.015);
             ctx.rotate(innerRotation);
             
-            // Математическая пульсация радиуса внутреннего кольца
             let innerPulse = Math.sin(globalTime * 0.8) * 6; 
             let currentInnerRadius = currentRadius - 25 + innerPulse;
             
             ctx.beginPath();
             ctx.arc(0, 0, currentInnerRadius, 0, Math.PI * 2);
             ctx.strokeStyle = 'rgba(0, 255, 102, 0.75)';
-            ctx.lineWidth = 2; // В 3 раза тоньше главного
+            ctx.lineWidth = 2;
             ctx.stroke();
             ctx.restore();
             
@@ -247,7 +254,7 @@
             "[Безопасность: <span>Шифрование данных алгоритмом E2EE</span>]"
         ];
 
-        // Спавн тегов в случайных координатах за контуром широких лучей
+        // Безопасный спавн тегов строго в читаемой зоне экрана телефона
         function spawnFloatingTag() {
             if (!isAudioInitialized) return;
             
@@ -256,18 +263,27 @@
             tag.className = 'ai-tag';
             tag.innerHTML = aiMarkers[Math.floor(Math.random() * aiMarkers.length)];
             
+            // Вычисляем случайное смещение, но не дальше безопасного окна видимости
             const angle = Math.random() * Math.PI * 2;
-            // Увеличили дистанцию спавна, так как сама сфера стала сильно крупнее
-            const distance = 200 + Math.random() * 80; 
-            const x = (window.innerWidth / 2) + Math.cos(angle) * distance;
-            const y = (window.innerHeight / 2) + Math.sin(angle) * distance;
+            const distance = 160 + Math.random() * 50; 
+            
+            let x = (window.innerWidth / 2) + Math.cos(angle) * distance;
+            let y = (window.innerHeight / 2) + Math.sin(angle) * distance;
+            
+            // Защита от выхода за горизонтальные края (отступы по 50px)
+            if (x < 50) x = 50;
+            if (x > window.innerWidth - 150) x = window.innerWidth - 150;
+            
+            // Защита от улета вверх под шапку и вниз под кнопку
+            if (y < 120) y = 120;
+            if (y > window.innerHeight - 180) y = window.innerHeight - 180;
             
             tag.style.left = `${x}px`;
             tag.style.top = `${y}px`;
             
             container.appendChild(tag);
             
-            // Плавное исчезновение зафиксировано в CSS на 5 секунд
+            // Исчезновение за 5 секунд
             setTimeout(() => { tag.remove(); }, 5000);
         }
 
