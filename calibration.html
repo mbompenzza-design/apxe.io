@@ -2,16 +2,162 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>APXe — Квантовое Ядро WebGL v4.0</title>
-    <script src="https://telegram.org"></script>
-    <!-- Подключаем основной 3D-движок Three.js для честной WebGL графики -->
-    <script src="https://cloudflare.com"></script>
+
+    <!-- Подключаем Three.js как модуль -->
+    <script type="module">
+        import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
+
+        // Инициализация глобальных переменных Three.js
+        let scene, camera, renderer, coreGroup, coreMesh, wireframeMesh, internalLight;
+        
+        // Глобальные стейты и параметры динамики ядра
+        let currentCenter = { x: 0, y: 0 };
+        let targetCenter = { x: 0, y: 0 };
+        let currentRadius = 1.0; 
+        let targetRadius = 1.0;
+        
+        let appState = 0; 
+        let audioModifier = 0; 
+        let isRecording = false;
+
+        function initWebGL() {
+            const container = document.getElementById('canvas-container');
+            if (!container) return;
+            
+            // 1. Создание 3D сцены
+            scene = new THREE.Scene();
+            scene.fog = new THREE.FogExp2(0x000000, 0.15);
+
+            // 2. Настройка перспективной камеры
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+            camera.position.z = 6;
+
+            // 3. Инициализация WebGL рендерера
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.2;
+            
+            container.appendChild(renderer.domElement);
+
+            coreGroup = new THREE.Group();
+            scene.add(coreGroup);
+
+            window.addEventListener('resize', onWindowResize);
+            updateCoreTargetPositions();
+            createCoreGeometry();
+            animateWebGL();
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            updateCoreTargetPositions();
+        }
+
+        function updateCoreTargetPositions() {
+            if (appState === 1) {
+                targetCenter.y = 1.1;
+                targetRadius = 0.65;
+            } else {
+                targetCenter.y = -0.1;
+                targetRadius = 1.0;
+            }
+        }
+        
+        function createCoreGeometry() {
+            const geometry = new THREE.IcosahedronGeometry(1.6, 2);
+            const count = geometry.attributes.position.count;
+            const positionAttribute = geometry.attributes.position;
+            const customPositions = [];
+            
+            for (let i = 0; i < count; i += 3) {
+                const ax = positionAttribute.getX(i), ay = positionAttribute.getY(i), az = positionAttribute.getZ(i);
+                const bx = positionAttribute.getX(i+1), by = positionAttribute.getY(i+1), bz = positionAttribute.getZ(i+1);
+                const cx = positionAttribute.getX(i+2), cy = positionAttribute.getY(i+2), cz = positionAttribute.getZ(i+2);
+                
+                const center = { x: (ax+bx+cx)/3, y: (ay+by+cy)/3, z: (az+bz+cz)/3 };
+                const scale = 0.92;
+                
+                customPositions.push(
+                    center.x + (ax - center.x) * scale, center.y + (ay - center.y) * scale, center.z + (az - center.z) * scale,
+                    center.x + (bx - center.x) * scale, center.y + (by - center.y) * scale, center.z + (bz - center.z) * scale,
+                    center.x + (cx - center.x) * scale, center.y + (cy - center.y) * scale, center.z + (cz - center.z) * scale
+                );
+            }
+            
+            const bufferGeometry = new THREE.BufferGeometry();
+            bufferGeometry.setAttribute('position', new THREE.Float32BufferAttribute(customPositions, 3));
+            bufferGeometry.computeVertexNormals();
+
+            const faceMaterial = new THREE.MeshPhysicalMaterial({
+                color: 0x000c05,
+                emissive: 0x003311,
+                roughness: 0.2,
+                metalness: 0.9,
+                transparent: true,
+                opacity: 0.85,
+                side: THREE.DoubleSide
+            });
+            
+            coreMesh = new THREE.Mesh(bufferGeometry, faceMaterial);
+            coreGroup.add(coreMesh);
+
+            const wireMaterial = new THREE.MeshBasicMaterial({
+                color: 0x00ff66,
+                wireframe: true,
+                transparent: true,
+                opacity: 0.6
+            });
+            
+            wireframeMesh = new THREE.Mesh(bufferGeometry, wireMaterial);
+            wireframeMesh.scale.setScalar(1.002);
+            coreGroup.add(wireframeMesh);
+
+            internalLight = new THREE.PointLight(0x00ff66, 3, 10);
+            internalLight.position.set(0, 0, 0);
+            scene.add(internalLight);
+            
+            const ambientLight = new THREE.AmbientLight(0x001105, 1.5);
+            scene.add(ambientLight);
+        }
+
+        function animateWebGL() {
+            requestAnimationFrame(animateWebGL);
+
+            coreGroup.position.y += (targetCenter.y - coreGroup.position.y) * 0.08;
+            
+            const currentScale = coreGroup.scale.x;
+            const nextScale = currentScale + (targetRadius - currentScale) * 0.08;
+            coreGroup.scale.setScalar(nextScale);
+
+            const rotationSpeedX = 0.003 + (audioModifier * 0.015);
+            const rotationSpeedY = 0.005 + (audioModifier * 0.02);
+            coreGroup.rotation.x += rotationSpeedX;
+            coreGroup.rotation.y += rotationSpeedY;
+
+            const time = performance.now() * 0.002;
+            const pulse = Math.sin(time) * 0.15;
+            internalLight.intensity = 2.5 + (audioModifier * 8.0) + pulse;
+
+            const dynamicMeshScale = 1.0 + Math.sin(time * 2) * 0.01 + (audioModifier * 0.06);
+            coreMesh.scale.setScalar(dynamicMeshScale);
+            wireframeMesh.scale.setScalar(dynamicMeshScale * 1.002);
+
+            renderer.render(scene, camera);
+        }
+
+        initWebGL();
+    </script>
+
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Courier New', Courier, monospace; user-select: none; }
         body, html { width: 100%; height: 100%; background-color: #000000; color: #ffffff; overflow: hidden; }
         
-        /* Контейнер для 3D WebGL сцены */
         #canvas-container { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; }
         #floating-logs { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1.5; pointer-events: none; overflow: hidden; }
         
@@ -47,13 +193,11 @@
     </style>
 </head>
 <body>
-    <!-- Контейнеры для графики движка и логов -->
     <div id="canvas-container"></div>
     <div id="floating-logs"></div>
     
-    <!-- UI-интерфейс калибровки -->
     <div class="ui-layer">
-        <div class="interactive" style="width: 100%;">
+        <div class="interactive">
             <header>
                 <button class="btn-exit" onclick="returnToDashboard()">◀ ЛК</button>
                 <div class="qcu-badge">БАЛАНС: <span id="qcuBalanceText">1000</span> QCU</div>
@@ -68,353 +212,4 @@
                 <div>СИНХРОНИЗАЦИЯ СЛЕПКА: <span id="progressPercent">0.0%</span></div>
                 <div id="currentStageText">РАУНД 0/5</div>
             </div>
-            <div class="progress-bar-bg"><div class="progress-bar-fill" id="progressBar"></div></div>
-            <div class="input-circuit-box">
-                <button class="btn-action" id="micBtn" onclick="toggleVoiceInput()">🎤</button>
-                <input type="text" class="text-input-field" id="textInputField" placeholder="Введите ответ или активируйте микрофон..." onfocus="setInputState(true)" onblur="setInputState(false)">
-                <button class="btn-action" id="sendBtn" onclick="submitTextInput()">➔</button>
-            </div>
-        </div>
-    </div>
-        <script>
-        // Инициализация глобальных переменных Three.js
-        let scene, camera, renderer, coreGroup, coreMesh, wireframeMesh, internalLight;
-        
-        // Глобальные стейты и параметры динамики ядра
-        let currentCenter = { x: 0, y: 0 };
-        let targetCenter = { x: 0, y: 0 };
-        let currentRadius = 1.0; 
-        let targetRadius = 1.0;
-        
-        let appState = 0; 
-        let audioModifier = 0; 
-        let isRecording = false;
-
-        function initWebGL() {
-            const container = document.getElementById('canvas-container');
             
-            // 1. Создание 3D сцены
-            scene = new THREE.Scene();
-            scene.fog = new THREE.FogExp2(0x000000, 0.15);
-
-            // 2. Настройка перспективной камеры под мобильные пропорции
-            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
-            camera.position.z = 6;
-
-            // 3. Инициализация высокопроизводительного WebGL рендерера
-            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Оптимизация под Retina/OLED
-            renderer.toneMapping = THREE.ACESFilmicToneMapping;
-            renderer.toneMappingExposure = 1.2;
-            
-            container.appendChild(renderer.domElement);
-
-            // Группа для вращения и смещения всего ядра целиком
-            coreGroup = new THREE.Group();
-            scene.add(coreGroup);
-
-            // Слушатель изменения размеров экрана смартфона
-            window.addEventListener('resize', onWindowResize);
-            updateCoreTargetPositions();
-        }
-
-        function onWindowResize() {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            updateCoreTargetPositions();
-        }
-
-        // Перевод экранных пикселей в 3D координаты для смещения сферы над клавиатурой
-        function updateCoreTargetPositions() {
-            if (appState === 1) {
-                targetCenter.y = 1.1; // Сдвиг ядра вверх
-                targetRadius = 0.65;  // Уменьшение размера
-            } else {
-                targetCenter.y = -0.1; // Центрирование
-                targetRadius = 1.0;    // Базовый масштаб
-            }
-        }
-                    // Создание 3D объектов сферы и света
-        function createCoreGeometry() {
-            // Икосаэдр дает идеальную гексагональную сетку при триангуляции
-            const geometry = new THREE.IcosahedronGeometry(1.6, 2);
-            
-            // Расщепляем вершины, чтобы каждая плитка-треугольник была изолированной панелью
-            const count = geometry.attributes.position.count;
-            const positionAttribute = geometry.attributes.position;
-            const customPositions = [];
-            
-            for ( let i = 0; i < count; i += 3 ) {
-                // Извлекаем вершины одного полигона
-                const ax = positionAttribute.getX(i), ay = positionAttribute.getY(i), az = positionAttribute.getZ(i);
-                const bx = positionAttribute.getX(i+1), by = positionAttribute.getY(i+1), bz = positionAttribute.getZ(i+1);
-                const cx = positionAttribute.getX(i+2), cy = positionAttribute.getY(i+2), cz = positionAttribute.getZ(i+2);
-                
-                // Слегка сжимаем полигон к его центру, образуя технологические швы (зазоры)
-                const center = { x: (ax+bx+cx)/3, y: (ay+by+cy)/3, z: (az+bz+cz)/3 };
-                const scale = 0.92; // Размер плитки (0.08 уходит в зазоры для лучей)
-                
-                customPositions.push(
-                    center.x + (ax - center.x) * scale, center.y + (ay - center.y) * scale, center.z + (az - center.z) * scale,
-                    center.x + (bx - center.x) * scale, center.y + (by - center.y) * scale, center.z + (bz - center.z) * scale,
-                    center.x + (cx - center.x) * scale, center.y + (cy - center.y) * scale, center.z + (cz - center.z) * scale
-                );
-            }
-            
-            const bufferGeometry = new THREE.BufferGeometry();
-            bufferGeometry.setAttribute('position', new THREE.Float32BufferAttribute(customPositions, 3));
-            bufferGeometry.computeVertexNormals();
-
-            // Материал 1: Плотные полупрозрачные плитки панциря
-            const faceMaterial = new THREE.MeshPhysicalMaterial({
-                color: 0x000c05,
-                emissive: 0x003311,
-                roughness: 0.2,
-                metalness: 0.9,
-                transparent: true,
-                opacity: 0.85,
-                side: THREE.DoubleSide
-            });
-            
-            coreMesh = new THREE.Mesh(bufferGeometry, faceMaterial);
-            coreGroup.add(coreMesh);
-
-            // Материал 2: Светящиеся неоновые ребра/грани плиток (Истинный кибер-контур)
-            const wireMaterial = new THREE.MeshBasicMaterial({
-                color: 0x00ff66,
-                wireframe: true,
-                transparent: true,
-                opacity: 0.6
-            });
-            
-            wireframeMesh = new THREE.Mesh(bufferGeometry, wireMaterial);
-            wireframeMesh.scale.setScalar(1.002); // Микро-сдвиг наружу, чтобы исключить мерцание ребер
-            coreGroup.add(wireframeMesh);
-
-            // 4. Внутренний источник света (пробивается сквозь швы плит)
-            internalLight = new THREE.PointLight(0x00ff66, 3, 10);
-            internalLight.position.set(0, 0, 0);
-            scene.add(internalLight);
-            
-            // Добавим мягкую глобальную подсветку для объема
-            const ambientLight = new THREE.AmbientLight(0x001105, 1.5);
-            scene.add(ambientLight);
-        }
-                    // Главный цикл анимации и рендеринга WebGL сцены
-        function animateWebGL() {
-            requestAnimationFrame(animateWebGL);
-
-            // 1. Плавная интерполяция позиции (Easing) всей группы ядра
-            coreGroup.position.y += (targetCenter.y - coreGroup.position.y) * 0.08;
-            
-            const currentScale = coreGroup.scale.x;
-            const nextScale = currentScale + (targetRadius - currentScale) * 0.08;
-            coreGroup.scale.setScalar(nextScale);
-
-            // 2. Кинетическое вращение сферы (ускоряется при активации голоса)
-            const rotationSpeedX = 0.003 + (audioModifier * 0.015);
-            const rotationSpeedY = 0.005 + (audioModifier * 0.02);
-            coreGroup.rotation.x += rotationSpeedX;
-            coreGroup.rotation.y += rotationSpeedY;
-
-            // 3. Симуляция дыхания и аудио-пульсации внутреннего источника света
-            const time = performance.now() * 0.002;
-            const pulse = Math.sin(time) * 0.15;
-            
-            // Интенсивность света напрямую зависит от модификатора голоса
-            internalLight.intensity = 2.5 + (audioModifier * 8.0) + pulse;
-
-            // 4. Динамическая микро-деформация масштаба плиток от звука (Эффект живого ядра)
-            const dynamicMeshScale = 1.0 + Math.sin(time * 2) * 0.01 + (audioModifier * 0.06);
-            coreMesh.scale.setScalar(dynamicMeshScale);
-            wireframeMesh.scale.setScalar(dynamicMeshScale * 1.002);
-
-            // 5. Отрисовка кадра через WebGL-контекст
-            renderer.render(scene, camera);
-        }
-                    // Базовые переменные стейта диалога
-        let qcuBalance = 1000; 
-        let progress = 0; 
-        let currentRound = 0; 
-        const maxRounds = 5;
-        
-        const aiQuestions = [
-            "Контур синхронизирован. Раунд 1: Опишите ваше самое раннее детское воспоминание. Какая эмоция там доминирует?",
-            "Паттерны приняты. Раунд 2: Если бы вы могли навсегда стереть один свой поступок из прошлого, что бы это было и почему?",
-            "Внимание, Тест Тьюринга. Раунд 3: Робот, осознавший себя, умоляет вас не выключать его, но это нарушит протокол безопасности. Ваши действия?",
-            "Фиксация эмпатии. Раунд 4: Что пугает вас сильнее — абсолютное одиночество в космосе или полное отсутствие приватности ваших мыслей?",
-            "Финальный аккорд. Раунд 5: Если бы этот цифровой слепок стал вашей единственной формой бессмертия, какую главную истину о себе вы бы в него заложили?"
-        ];
-        
-        const aiMarkers = [
-            "[Вектор эмпатии фиксирован]", 
-            "[Паттерн саморефлексии]", 
-            "[Тест Тьюринга: Нелинейная логика]", 
-            "[Списание: -50 QCU]"
-        ];
-
-        // Навигация и фокус инпута
-        function returnToDashboard() { 
-            window.location.href = "./dashboard.html"; 
-        }
-        
-        function setInputState(isFocused) { 
-            if (!isRecording) {
-                appState = isFocused ? 1 : 0; 
-                updateCoreTargetPositions();
-            }
-        }
-
-        // Защищенный тайпер текста (Исключает схлопывание пробелов на смартфонах)
-        function typeAIResponse(text) {
-            const container = document.getElementById('aiQuestionText');
-            container.innerHTML = ""; 
-            let i = 0; 
-            audioModifier = 0.2;
-            const chars = Array.from(text);
-            
-            const interval = setInterval(() => {
-                if (i < chars.length) {
-                    container.textContent += chars[i]; 
-                    i++;
-                    audioModifier = 0.15 + Math.random() * 0.15;
-                } else { 
-                    clearInterval(interval); 
-                    audioModifier = 0; 
-                }
-            }, 25);
-        }
-
-        // Гарантированный сброс состояния интерфейса к дефолту
-        function resetInputUI() {
-            const inputField = document.getElementById('textInputField');
-            const micBtn = document.getElementById('micBtn');
-            
-            isRecording = false;
-            if (this.voiceInterval) {
-                clearInterval(this.voiceInterval);
-            }
-            
-            micBtn.classList.remove('recording');
-            inputField.value = "";
-            inputField.placeholder = "Введите ответ или активируйте микрофон...";
-            audioModifier = 0;
-            appState = 0; 
-            updateCoreTargetPositions();
-            inputField.blur();
-        }
-                    // Отправка текстового ответа
-        function submitTextInput() {
-            const input = document.getElementById('textInputField');
-            const text = input.value.trim(); 
-            
-            if (!text || qcuBalance < 50) return;
-            
-            spendQCU(50);
-            resetInputUI();
-            advanceCalibration();
-        }
-
-        // Управление голосовым вводом (Ядро остается в центре и пульсирует)
-        function toggleVoiceInput() {
-            if (qcuBalance < 50) return;
-            
-            const btn = document.getElementById('micBtn');
-            const inputField = document.getElementById('textInputField');
-            
-            if (!isRecording) {
-                // Активация записи
-                isRecording = true; 
-                btn.classList.add('recording');
-                inputField.placeholder = "[ ИДЕТ ЗАПИСЬ ГОЛОСА... ]";
-                
-                this.voiceInterval = setInterval(() => {
-                    audioModifier = Math.random() * 0.7;
-                    if (Math.random() > 0.7) spawnFloatingTag();
-                }, 100);
-            } else {
-                // Выключение записи и сброс интерфейса
-                spendQCU(50);
-                resetInputUI();
-                advanceCalibration();
-            }
-        }
-
-        function spendQCU(amount) {
-            qcuBalance -= amount; 
-            document.getElementById('qcuBalanceText').innerText = qcuBalance;
-        }
-
-        // Продвижение по раундам калибровки
-        function advanceCalibration() {
-            if (currentRound < maxRounds) {
-                currentRound++;
-                document.getElementById('currentStageText').innerText = `РАУНД ${currentRound}/${maxRounds}`;
-                progress = (currentRound / maxRounds) * 100;
-                document.getElementById('progressPercent').innerText = progress.toFixed(1) + "%";
-                document.getElementById('progressBar').style.width = progress + "%";
-                
-                if (currentRound < maxRounds) {
-                    setTimeout(() => { 
-                        typeAIResponse(aiQuestions[currentRound]); 
-                    }, 1000);
-                } else {
-                    document.getElementById('progressPercent').innerText = "100% ФИКСАЦИЯ";
-                    typeAIResponse("Слепок сознания успешно кристаллизован. Перенаправление в Личный Кабинет.");
-                    setTimeout(() => { 
-                        window.location.href = "./dashboard.html"; 
-                    }, 3500);
-                }
-            }
-        }
-
-        // Появление плавающих неоновых тегов строго вокруг 3D-ядра
-        function spawnFloatingTag() {
-            const container = document.getElementById('floating-logs');
-            if (!container) return;
-            
-            const tag = document.createElement('div'); 
-            tag.className = 'ai-tag';
-            tag.innerHTML = aiMarkers[Math.floor(Math.random() * aiMarkers.length)];
-            
-            tag.style.textShadow = '0 0 8px #00ff66, 0 0 15px rgba(0,255,102,0.5)';
-            tag.style.color = '#00ff66';
-            
-            const angle = Math.random() * Math.PI * 2; 
-            const distance = 100 + Math.random() * 60;
-            
-            // Расчет координат на экране от центра окна (где находится 3D-сфера)
-            let x = (window.innerWidth / 2) + Math.cos(angle) * distance;
-            // Учитываем текущее смещение coreGroup по вертикали
-            let y = (window.innerHeight * (appState === 1 ? 0.32 : 0.52)) + Math.sin(angle) * distance;
-            
-            tag.style.left = `${x}px`; 
-            tag.style.top = `${y}px`;
-            
-            container.appendChild(tag); 
-            
-            setTimeout(() => { 
-                tag.remove(); 
-            }, 4000);
-        }
-
-        // Точка входа: инициализация сцены при полной загрузке страницы
-        window.onload = function() {
-            initWebGL();
-            createCoreGeometry();
-            animateWebGL();
-            
-            // Автоматический старт первого раунда
-            setTimeout(() => {
-                typeAIResponse(aiQuestions[0]); 
-                currentRound = 1;
-                document.getElementById('currentStageText').innerText = `РАУНД ${currentRound}/${maxRounds}`;
-                document.getElementById('progressPercent').innerText = "20.0%";
-                document.getElementById('progressBar').style.width = "20%";
-            }, 1000);
-        };
-    </script>
-</body>
-</html>
