@@ -2,34 +2,45 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>APXe v3.0</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>APXe — Контур Калибровки v3.1</title>
     <script src="https://telegram.org"></script>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Courier New', monospace; user-select: none; }
-        body, html { width: 100%; height: 100%; background: #010805; color: #fff; overflow: hidden; }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Courier New', Courier, monospace; user-select: none; }
+        body, html { width: 100%; height: 100%; background-color: #000000; color: #ffffff; overflow: hidden; }
+        
         #canvas-container { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; }
-        .ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 2; pointer-events: none; display: flex; flex-direction: column; justify-content: space-between; padding: 15px; }
-        .interactive { pointer-events: auto; }
-        header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(0,255,102,0.05); padding-bottom: 10px; }
-        .btn-exit { background: transparent; border: 1px solid #005522; color: #00ff66; padding: 6px 12px; font-size: 11px; cursor: pointer; border-radius: 3px; font-weight: bold; }
-        .qcu-badge { background: rgba(1,10,5,0.85); border: 1px solid rgba(0,255,102,0.2); padding: 6px 12px; font-size: 11px; color: #00ff66; font-weight: bold; border-radius: 3px; }
-        .ai-prompter-box { width: 100%; margin-top: 10px; background: rgba(1,10,5,0.7); border-left: 2px solid #00ff66; padding: 10px; backdrop-filter: blur(5px); }
-        .ai-title { font-size: 9px; color: #008844; letter-spacing: 1px; margin-bottom: 3px; }
-        .ai-text { font-size: 12px; line-height: 1.4; }
         #floating-logs { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1.5; pointer-events: none; overflow: hidden; }
-        .ai-tag { position: absolute; font-size: 10px; color: #00aa44; transform: translate(-50%, -50%); opacity: 0; animation: floatAndFade 5s linear forwards; font-weight: bold; white-space: nowrap; }
-        .ai-tag span { color: #fff; text-shadow: 0 0 4px #00ff66; }
-        .control-container { width: 100%; display: flex; flex-direction: column; gap: 10px; }
-        .tracker-mini { display: flex; justify-content: space-between; font-size: 9px; color: #008844; }
-        .progress-bar-bg { width: 100%; height: 2px; background: rgba(0,255,102,0.05); overflow: hidden; }
+        
+        .ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 2; pointer-events: none; display: flex; flex-direction: column; justify-content: space-between; padding: 20px; padding-bottom: calc(20px + env(safe-area-inset-bottom)); }
+        .interactive { pointer-events: auto; }
+        
+        header { display: flex; justify-content: space-between; align-items: center; width: 100%; border-bottom: 1px solid rgba(0,255,102,0.05); padding-bottom: 12px; }
+        .btn-exit { background: transparent; border: 1px solid #005522; color: #00ff66; padding: 6px 12px; font-size: 11px; cursor: pointer; border-radius: 3px; font-weight: bold; transition: all 0.3s; outline: none; }
+        .btn-exit:hover { background: rgba(0,255,102,0.1); border-color: #00ff66; }
+        .qcu-badge { background: rgba(0,0,0,0.85); border: 1px solid rgba(0,255,102,0.2); padding: 6px 12px; font-size: 11px; color: #00ff66; font-weight: bold; border-radius: 3px; box-shadow: 0 0 8px rgba(0,255,102,0.1); }
+        
+        .ai-prompter-box { width: 100%; margin-top: 15px; background: rgba(0,0,0,0.8); border-left: 2px solid #00ff66; padding: 12px; min-height: 60px; backdrop-filter: blur(5px); }
+        .ai-title { font-size: 10px; color: #008844; letter-spacing: 1px; margin-bottom: 4px; }
+        .ai-text { font-size: 13px; line-height: 1.4; color: #ffffff; min-height: 18px; white-space: pre-wrap; word-break: break-word; }
+        
+        .control-container { width: 100%; display: flex; flex-direction: column; gap: 12px; }
+        .tracker-mini { display: flex; justify-content: space-between; font-size: 10px; color: #008844; letter-spacing: 1px; }
+        .progress-bar-bg { width: 100%; height: 2px; background: rgba(0,255,102,0.05); position: relative; overflow: hidden; }
         .progress-bar-fill { width: 0%; height: 100%; background: #00ff66; transition: width 0.4s ease; box-shadow: 0 0 10px #00ff66; }
-        .input-circuit-box { display: flex; background: rgba(1,10,5,0.95); border: 1px solid rgba(0,255,102,0.15); border-radius: 4px; padding: 4px; backdrop-filter: blur(10px); }
-        .text-input-field { flex: 1; background: transparent; border: none; outline: none; color: #fff; font-size: 12px; padding: 6px; }
-        .btn-action { background: transparent; border: none; color: #00ff66; width: 34px; height: 34px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+        
+        .input-circuit-box { display: flex; background: rgba(0,0,0,0.95); border: 1px solid rgba(0,255,102,0.15); border-radius: 4px; padding: 6px; backdrop-filter: blur(10px); }
+        .text-input-field { flex: 1; background: transparent; border: none; outline: none; color: #ffffff; font-size: 13px; padding: 8px 10px; }
+        .text-input-field::placeholder { color: #004411; transition: color 0.3s ease; }
+        
+        .btn-action { background: transparent; border: none; color: #00ff66; width: 38px; height: 38px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; transition: all 0.2s; border-radius: 3px; outline: none; }
+        .btn-action:hover { background: rgba(0,255,102,0.08); }
         .btn-action.recording { color: #ff3333; animation: pulseGlow 1.5s infinite; }
+        
+        .ai-tag { position: absolute; font-size: 11px; color: #00aa44; transform: translate(-50%, -50%); opacity: 0; animation: floatAndFade 5s linear forwards; font-weight: bold; white-space: nowrap; }
+        
         @keyframes floatAndFade { 0% { opacity: 0; transform: translate(-50%, -50%) translateY(8px); } 15% { opacity: 0.9; } 85% { opacity: 0.5; } 100% { opacity: 0; transform: translate(-50%, -50%) translateY(-15px); } }
-        @keyframes pulseGlow { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }
+        @keyframes pulseGlow { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.1); opacity: 0.7; } }
     </style>
 </head>
 <body>
@@ -43,131 +54,165 @@
             </header>
             <div class="ai-prompter-box">
                 <div class="ai-title">// КВАНТОВЫЙ СУФЛЕР ИИ //</div>
-                <div class="ai-text" id="aiQuestionText">Синхронизация...</div>
+                <div class="ai-text" id="aiQuestionText">Синхронизация квантовых каналов...</div>
             </div>
         </div>
         <div class="control-container interactive">
             <div class="tracker-mini">
-                <div>СИНХРОНИЗАЦИЯ: <span id="progressPercent">0.0%</span></div>
+                <div>СИНХРОНИЗАЦИЯ СЛЕПКА: <span id="progressPercent">0.0%</span></div>
                 <div id="currentStageText">РАУНД 0/5</div>
             </div>
             <div class="progress-bar-bg"><div class="progress-bar-fill" id="progressBar"></div></div>
             <div class="input-circuit-box">
                 <button class="btn-action" id="micBtn" onclick="toggleVoiceInput()">🎤</button>
-                <input type="text" class="text-input-field" id="textInputField" placeholder="Ответьте текстом или голосом..." onfocus="setInputState(true)" onblur="setInputState(false)">
-                <button class="btn-action" onclick="submitTextInput()">➔</button>
+                <input type="text" class="text-input-field" id="textInputField" placeholder="Введите ответ или активируйте микрофон..." onfocus="setInputState(true)" onblur="setInputState(false)">
+                <button class="btn-action" id="sendBtn" onclick="submitTextInput()">➔</button>
             </div>
         </div>
     </div>
-    <!-- Сюда на следующем шаге мы вставим логику скриптов -->
 </body>
 </html>
     <script>
-        // 1. ИНИЦИАЛИЗАЦИЯ CANVAS И КООРДИНАТ СФЕРЫ
+        // Инициализация Canvas контекста
         const canvas = document.getElementById('coreCanvas');
         const ctx = canvas.getContext('2d');
-        function resizeCanvas() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
-        window.addEventListener('resize', resizeCanvas); resizeCanvas();
+        
+        function resizeCanvas() { 
+            canvas.width = window.innerWidth; 
+            canvas.height = window.innerHeight; 
+        }
+        window.addEventListener('resize', resizeCanvas); 
+        resizeCanvas();
 
+        // Геометрия и динамика ядра
         let currentCenter = { x: canvas.width / 2, y: canvas.height / 2 };
         let targetCenter = { x: canvas.width / 2, y: canvas.height / 2 };
-        let currentRadius = 140; let targetRadius = 140;
-        let appState = 0; // 0 = центр, 1 = сдвиг наверх под клавиатуру
-        let audioModifier = 0; // Пульсация от голоса
+        let currentRadius = 140; 
+        let targetRadius = 140;
+        let appState = 0; 
+        let audioModifier = 0; 
+        let isRecording = false;
 
-        const rings = 11; const segments = 17; const spherePoints = [];
-
-        // Построение 3D-вершин матрицы
+        // Построение изолированных плиток полусферы (Отрезаем избыточную глубину)
+        const rings = 14; 
+        const segments = 22; 
+        const spherePoints = [];
+        
         for (let i = 0; i <= rings; i++) {
             let phi = (i / rings) * Math.PI; 
             for (let j = 0; j < segments; j++) {
                 let theta = (j / segments) * Math.PI * 2; 
                 spherePoints.push({
-                    x: Math.sin(phi) * Math.cos(theta), y: Math.cos(phi), z: Math.sin(phi) * Math.sin(theta),
-                    baseX: Math.sin(phi) * Math.cos(theta), baseY: Math.cos(phi), baseZ: Math.sin(phi) * Math.sin(theta)
+                    x: Math.sin(phi) * Math.cos(theta), 
+                    y: Math.cos(phi), 
+                    z: Math.sin(phi) * Math.sin(theta),
+                    baseX: Math.sin(phi) * Math.cos(theta), 
+                    baseY: Math.cos(phi), 
+                    baseZ: Math.sin(phi) * Math.sin(theta)
                 });
             }
         }
 
-        let angleX = 0.004; let angleY = 0.007; let globalPhase = 0;
+        let angleX = 0.003; 
+        let angleY = 0.005; 
+        let globalPhase = 0;
 
-        // 2. СИСТЕМНЫЙ ЦИКЛ РЕНДЕРИНГА ЯДРА
+        // Главный цикл отрисовки ядра
         function drawCyberCore() {
-            // Расчет плавного ухода сферы вверх при appState === 1
-            if (appState === 1) {
-                targetCenter.y = window.innerHeight * 0.33; targetRadius = 80;
-            } else {
-                targetCenter.y = window.innerHeight * 0.52; targetRadius = 135;
+            // Адаптация положения ядра под экранную клавиатуру смартфона
+            if (appState === 1) { 
+                targetCenter.y = window.innerHeight * 0.32; 
+                targetRadius = 85; 
+            } else { 
+                targetCenter.y = window.innerHeight * 0.52; 
+                targetRadius = 145; 
             }
             targetCenter.x = window.innerWidth / 2;
 
-            currentCenter.x += (targetCenter.x - currentCenter.x) * 0.12;
-            currentCenter.y += (targetCenter.y - currentCenter.y) * 0.12;
-            currentRadius += (targetRadius - currentRadius) * 0.12;
+            // Плавная интерполяция позиции (Easing)
+            currentCenter.x += (targetCenter.x - currentCenter.x) * 0.1;
+            currentCenter.y += (targetCenter.y - currentCenter.y) * 0.1;
+            currentRadius += (targetRadius - currentRadius) * 0.1;
 
-            ctx.fillStyle = '#010805'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-            globalPhase += 0.035;
-            let dynamicRadius = currentRadius + (audioModifier * 55);
+            ctx.fillStyle = '#000000'; 
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            globalPhase += 0.025;
+            let dynamicRadius = currentRadius + (audioModifier * 30);
 
             let cosX = Math.cos(angleX); let sinX = Math.sin(angleX);
             let cosY = Math.cos(angleY); let sinY = Math.sin(angleY);
 
+            // Расчет волновой деформации вершин
             spherePoints.forEach((p, idx) => {
-                let wave = Math.sin(globalPhase + idx * 0.12) * (0.04 + audioModifier * 0.15);
-                let r = 1 + wave;
+                let wave = Math.sin(globalPhase + idx * 0.15) * (0.02 + audioModifier * 0.08);
+                let r = 1.0 + wave * 0.3;
                 let x1 = p.baseX * r; let y1 = p.baseY * r; let z1 = p.baseZ * r;
                 let x2 = x1 * cosY - z1 * sinY; let z2 = z1 * cosY + x1 * sinY;
                 let y3 = y1 * cosX - z2 * sinX; let z3 = z2 * cosX + y1 * sinX;
                 p.x = x2; p.y = y3; p.z = z3;
             });
 
-            angleX += 0.0015 + (audioModifier * 0.008);
-            angleY += 0.003 + (audioModifier * 0.012);
+            angleX += 0.001 + (audioModifier * 0.004);
+            angleY += 0.002 + (audioModifier * 0.006);
+            
+            // Сортировка полигонов по удаленности для корректного перекрытия
             spherePoints.sort((a, b) => b.z - a.z);
 
-            ctx.save(); ctx.shadowBlur = 18; ctx.shadowColor = 'rgba(0, 255, 102, 0.55)';
-            for (let i = 0; i < rings; i++) {
+            ctx.save();
+            for (let i = 0; i < rings - 1; i++) {
                 for (let j = 0; j < segments; j++) {
                     let idx1 = i * segments + j;
                     let idx2 = i * segments + ((j + 1) % segments);
-                    let idx3 = (i + 1) * segments + j;
+                    let idx3 = (i + 1) * segments + ((j + 1) % segments);
+                    let idx4 = (i + 1) * segments + j;
 
-                    let p1 = spherePoints[idx1]; let p2 = spherePoints[idx2]; let p3 = spherePoints[idx3];
+                    let p1 = spherePoints[idx1]; let p2 = spherePoints[idx2];
+                    let p3 = spherePoints[idx3]; let p4 = spherePoints[idx4];
 
-                    let screenX1 = currentCenter.x + p1.x * dynamicRadius; let screenY1 = currentCenter.y + p1.y * dynamicRadius;
-                    let screenX2 = currentCenter.x + p2.x * dynamicRadius; let screenY2 = currentCenter.y + p2.y * dynamicRadius;
-                    let screenX3 = currentCenter.x + p3.x * dynamicRadius; let screenY3 = currentCenter.y + p3.y * dynamicRadius;
+                    // КРИТИЧЕСКОЕ ОТСЕЧЕНИЕ: убираем хаос, рендерим только лицевую сторону
+                    if (p1.z <= 0.0) continue;
 
-                    let opacity = 0.12 + ((p1.z + 1) / 2) * 0.73;
-                    ctx.beginPath(); ctx.strokeStyle = `rgba(0, 255, 102, ${opacity})`;
-                    ctx.lineWidth = p1.z > 0 ? 1.6 : 0.7;
-                    ctx.moveTo(screenX1, screenY1); ctx.lineTo(screenX2, screenY2); ctx.lineTo(screenX3, screenY3);
-                    ctx.closePath(); ctx.stroke();
+                    let sx1 = currentCenter.x + p1.x * dynamicRadius; let sy1 = currentCenter.y + p1.y * dynamicRadius;
+                    let sx2 = currentCenter.x + p2.x * dynamicRadius; let sy2 = currentCenter.y + p2.y * dynamicRadius;
+                    let sx3 = currentCenter.x + p3.x * dynamicRadius; let sy3 = currentCenter.y + p3.y * dynamicRadius;
+                    let sx4 = currentCenter.x + p4.x * dynamicRadius; let sy4 = currentCenter.y + p4.y * dynamicRadius;
 
-                    if ((idx1 % 6 === 0 && p1.z > 0.15) || (audioModifier > 0.35 && idx1 % 4 === 0)) {
-                        ctx.fillStyle = `rgba(0, 255, 102, ${opacity * 0.22 * (audioModifier + 0.35)})`; ctx.fill();
-                    }
+                    let opacity = 0.15 + (p1.z * 0.8);
+
+                    // Отрисовка изолированной плитки
+                    ctx.beginPath();
+                    ctx.moveTo(sx1, sy1); 
+                    ctx.lineTo(sx2, sy2); 
+                    ctx.lineTo(sx3, sy3); 
+                    ctx.lineTo(sx4, sy4);
+                    ctx.closePath();
+
+                    // Радиальный градиент плитки для эффекта объема
+                    let tileGlow = ctx.createRadialGradient(sx1, sy1, 2, sx1, sy1, dynamicRadius * 0.4);
+                    tileGlow.addColorStop(0, `rgba(0, 255, 102, ${opacity * 0.35})`);
+                    tileGlow.addColorStop(1, 'rgba(0, 10, 5, 0.9)');
+                    
+                    ctx.fillStyle = tileGlow; 
+                    ctx.fill();
+                    
+                    ctx.strokeStyle = `rgba(0, 255, 102, ${opacity * 0.75})`;
+                    ctx.lineWidth = 1.4;
+                    ctx.stroke();
                 }
             }
             ctx.restore();
             requestAnimationFrame(drawCyberCore);
         }
-        drawCyberCore();
         
-            // 3. ЛОГИКА ВОРОНКИ, ТОКЕНОВ И ТЕСТА ТЬЮРИНГА
-        const tg = window.Telegram?.WebApp;
-        let userTag = "[GUEST]";
-        if (tg) {
-            tg.ready(); tg.expand();
-            if (tg.initDataUnsafe?.user?.username) { userTag = `@${tg.initDataUnsafe.user.username}`; }
-        }
-
+        // Запуск ядра
+        drawCyberCore();
+                // Базовые переменные стейта диалога
         let qcuBalance = 1000; 
-        let progress = 0;
-        let currentRound = 0;
+        let progress = 0; 
+        let currentRound = 0; 
         const maxRounds = 5;
-        let isRecording = false;
-
+        
         const aiQuestions = [
             "Контур синхронизирован. Раунд 1: Опишите ваше самое раннее детское воспоминание. Какая эмоция там доминирует?",
             "Паттерны приняты. Раунд 2: Если бы вы могли навсегда стереть один свой поступок из прошлого, что бы это было и почему?",
@@ -175,63 +220,108 @@
             "Фиксация эмпатии. Раунд 4: Что пугает вас сильнее — абсолютное одиночество в космосе или полное отсутствие приватности ваших мыслей?",
             "Финальный аккорд. Раунд 5: Если бы этот цифровой слепок стал вашей единственной формой бессмертия, какую главную истину о себе вы бы в него заложили?"
         ];
-
+        
         const aiMarkers = [
-            "[Анализ: Вектор эмпатии повышен]", "[Психо-метрика: Паттерн саморефлексии]",
-            "[Тест Тьюринга: Нелинейная логика]", "[Когнитивный контур: Рационализация]",
-            "[Смысловой маркер: Архетип Искателя]", "[Списание токенов: -50 QCU]"
+            "[Вектор эмпатии фиксирован]", 
+            "[Паттерн саморефлексии]", 
+            "[Тест Тьюринга: Нелинейная логика]", 
+            "[Списание: -50 QCU]"
         ];
 
-        function returnToDashboard() {
-            if (confirm("Прервать сессию калибровки? Токены за текущий раунд не вернутся.")) {
-                window.location.href = "./dashboard.html";
+        // Навигация и фокус инпута
+        function returnToDashboard() { 
+            window.location.href = "./dashboard.html"; 
+        }
+        
+        function setInputState(isFocused) { 
+            // Сдвигаем ядро вверх, только если не идет запись голоса
+            if (!isRecording) {
+                appState = isFocused ? 1 : 0; 
             }
         }
 
-        function setInputState(isFocused) { appState = isFocused ? 1 : 0; }
-
+        // Защищенный тайпер текста (Исключает схлопывание пробелов на смартфонах)
         function typeAIResponse(text) {
             const container = document.getElementById('aiQuestionText');
-            container.innerText = ""; let i = 0; audioModifier = 0.25;
+            container.innerHTML = ""; 
+            let i = 0; 
+            audioModifier = 0.2;
+            const chars = Array.from(text);
+            
             const interval = setInterval(() => {
-                if (i < text.length) {
-                    container.innerText += text.charAt(i); i++;
-                    audioModifier = 0.2 + Math.random() * 0.15;
-                } else { clearInterval(interval); audioModifier = 0; }
-            }, 30);
+                if (i < chars.length) {
+                    container.textContent += chars[i]; 
+                    i++;
+                    audioModifier = 0.15 + Math.random() * 0.15;
+                } else { 
+                    clearInterval(interval); 
+                    audioModifier = 0; 
+                }
+            }, 25);
         }
 
+        // Сброс состояния инпута к исходному (Исправление бага)
+        function resetInputUI() {
+            const inputField = document.getElementById('textInputField');
+            const micBtn = document.getElementById('micBtn');
+            
+            isRecording = false;
+            if (this.voiceInterval) {
+                clearInterval(this.voiceInterval);
+            }
+            
+            micBtn.classList.remove('recording');
+            inputField.value = "";
+            inputField.placeholder = "Введите ответ или активируйте микрофон...";
+            audioModifier = 0;
+            appState = 0; // Возвращаем ядро в центр
+            inputField.blur();
+        }
+
+        // Отправка текстового ответа
         function submitTextInput() {
             const input = document.getElementById('textInputField');
-            const text = input.value.trim();
+            const text = input.value.trim(); 
+            
             if (!text || qcuBalance < 50) return;
-            input.value = ""; input.blur();
-            spendQCU(50); advanceCalibration();
+            
+            spendQCU(50);
+            resetInputUI();
+            advanceCalibration();
         }
 
+        // Управление голосовым вводом (Фикс залипания плейсхолдера)
         function toggleVoiceInput() {
             if (qcuBalance < 50) return;
+            
             const btn = document.getElementById('micBtn');
+            const inputField = document.getElementById('textInputField');
+            
             if (!isRecording) {
-                isRecording = true; btn.classList.add('recording');
-                document.getElementById('textInputField').placeholder = "[ ИДЕТ ЗАПИСЬ ГОЛОСА... ]";
+                // Активация записи
+                isRecording = true; 
+                appState = 1; // Сдвигаем ядро, освобождая место
+                btn.classList.add('recording');
+                inputField.placeholder = "[ ИДЕТ ЗАПИСЬ ГОЛОСА... ]";
+                
                 this.voiceInterval = setInterval(() => {
-                    audioModifier = Math.random() * 0.8;
-                    if (Math.random() > 0.6) spawnFloatingTag();
+                    audioModifier = Math.random() * 0.7;
+                    if (Math.random() > 0.7) spawnFloatingTag();
                 }, 100);
             } else {
-                isRecording = false; btn.classList.remove('recording');
-                clearInterval(this.voiceInterval); audioModifier = 0;
-                document.getElementById('textInputField').placeholder = "Ответьте текстом или голосом...";
-                spendQCU(50); advanceCalibration();
+                // Выключение записи и гарантированный сброс интерфейса
+                spendQCU(50);
+                resetInputUI();
+                advanceCalibration();
             }
         }
 
         function spendQCU(amount) {
-            qcuBalance -= amount; if (qcuBalance < 0) qcuBalance = 0;
+            qcuBalance -= amount; 
             document.getElementById('qcuBalanceText').innerText = qcuBalance;
         }
 
+        // Продвижение по раундам калибровки
         function advanceCalibration() {
             if (currentRound < maxRounds) {
                 currentRound++;
@@ -239,42 +329,50 @@
                 progress = (currentRound / maxRounds) * 100;
                 document.getElementById('progressPercent').innerText = progress.toFixed(1) + "%";
                 document.getElementById('progressBar').style.width = progress + "%";
-
-                for(let k=0; k<3; k++) { setTimeout(spawnFloatingTag, k * 400); }
-
+                
                 if (currentRound < maxRounds) {
-                    setTimeout(() => { typeAIResponse(aiQuestions[currentRound]); }, 1000);
+                    setTimeout(() => { 
+                        typeAIResponse(aiQuestions[currentRound]); 
+                    }, 1000);
                 } else {
                     document.getElementById('progressPercent').innerText = "100% ФИКСАЦИЯ";
-                    typeAIResponse("Слепок сознания успешно кристаллизован. Идет компиляция весов ядра... Перенаправление в Личный Кабинет.");
-                    setTimeout(() => {
-                        if (tg) { tg.sendData(JSON.stringify({ status: "crystallized", balance: qcuBalance })); }
-                        window.location.href = "./dashboard.html";
-                    }, 4000);
+                    typeAIResponse("Слепок сознания успешно кристаллизован. Перенаправление в Личный Кабинет.");
+                    setTimeout(() => { 
+                        window.location.href = "./dashboard.html"; 
+                    }, 3500);
                 }
             }
         }
 
+        // Появление плавающих кибер-тегов
         function spawnFloatingTag() {
             const container = document.getElementById('floating-logs');
-            const tag = document.createElement('div'); tag.className = 'ai-tag';
+            const tag = document.createElement('div'); 
+            tag.className = 'ai-tag';
             tag.innerHTML = aiMarkers[Math.floor(Math.random() * aiMarkers.length)];
-            const angle = Math.random() * Math.PI * 2; const distance = 110 + Math.random() * 50;
+            
+            const angle = Math.random() * Math.PI * 2; 
+            const distance = 120;
             let x = (window.innerWidth / 2) + Math.cos(angle) * distance;
             let y = (canvas.height / 2) + Math.sin(angle) * distance;
-            if (x < 60) x = 60; if (x > window.innerWidth - 180) x = window.innerWidth - 180;
-            if (y < 140) y = 140; if (y > window.innerHeight - 140) y = window.innerHeight - 140;
-            tag.style.left = `${x}px`; tag.style.top = `${y}px`;
-            container.appendChild(tag); setTimeout(() => { tag.remove(); }, 5000);
+            
+            tag.style.left = `${x}px`; 
+            tag.style.top = `${y}px`;
+            container.appendChild(tag); 
+            
+            setTimeout(() => { 
+                tag.remove(); 
+            }, 4000);
         }
 
+        // Автоматический старт первого раунда при инициализации
         setTimeout(() => {
-            typeAIResponse(aiQuestions[0]); currentRound = 1;
+            typeAIResponse(aiQuestions[0]); 
+            currentRound = 1;
             document.getElementById('currentStageText').innerText = `РАУНД ${currentRound}/${maxRounds}`;
             document.getElementById('progressPercent').innerText = "20.0%";
             document.getElementById('progressBar').style.width = "20%";
-        }, 1500);
-        </script>
-</body>
-</html>
-                
+        }, 1000);
+        
+                        </script>
+                        
