@@ -136,7 +136,7 @@
                 targetRadius = 1.0;    // Базовый масштаб
             }
         }
-        // Создание 3D объектов сферы и света
+        // Создание 3D объектов сферы (Оптимизировано под мобильный WebGL)
         function createCoreGeometry() {
             // Создаем красивую сферическую кибер-сетку (Икосаэдр)
             const geometry = new THREE.IcosahedronGeometry(1.5, 2);
@@ -146,36 +146,22 @@
             const wireMaterial = new THREE.LineBasicMaterial({
                 color: 0x00ff66,
                 transparent: true,
-                opacity: 0.7
+                opacity: 0.8
             });
             wireframeMesh = new THREE.LineSegments(edges, wireMaterial);
             coreGroup.add(wireframeMesh);
 
             // Создаем внутренние плотные плитки панциря
             const innerGeometry = new THREE.IcosahedronGeometry(1.47, 2);
-            const faceMaterial = new THREE.MeshStandardMaterial({
-                color: 0x051a0e,
-                roughness: 0.3,
-                metalness: 0.8,
-                flatShading: true, // Делает каждую плитку граненой и объемной, как на картинке!
+            
+            // Нормали дают идеальный футуристичный 3D-объем и переливы без нагрузки на свет
+            const faceMaterial = new THREE.MeshNormalMaterial({
+                flatShading: true, // Делает каждую плитку граненой и объемной!
                 transparent: true,
-                opacity: 0.95
+                opacity: 0.25      // Легкая полупрозрачность для эффекта голограммы
             });
             coreMesh = new THREE.Mesh(innerGeometry, faceMaterial);
             coreGroup.add(coreMesh);
-
-            // Внутренний пульсирующий источник света (пробивается сквозь сетку)
-            internalLight = new THREE.PointLight(0x00ff66, 4, 12);
-            internalLight.position.set(0, 0, 0);
-            scene.add(internalLight);
-            
-            // Направленный свет для красивой игры теней на гранях плит
-            const dirLight = new THREE.DirectionalLight(0x00ff66, 1.5);
-            dirLight.position.set(5, 5, 5);
-            scene.add(dirLight);
-
-            const ambientLight = new THREE.AmbientLight(0x000803, 2.0);
-            scene.add(ambientLight);
         }
         // Главный цикл анимации и рендеринга WebGL сцены
         function animateWebGL() {
@@ -194,18 +180,14 @@
             coreGroup.rotation.x += rotationSpeedX;
             coreGroup.rotation.y += rotationSpeedY;
 
-            // 3. Симуляция дыхания и аудио-пульсации внутреннего источника света
+            // 3. Динамическая пульсация размера от звука и времени
             const time = performance.now() * 0.002;
-            const pulse = Math.sin(time) * 0.2;
-            
-            internalLight.intensity = 3.0 + (audioModifier * 10.0) + pulse * 2.0;
-
-            // 4. Динамическая пульсация размера от звука (Эффект живого кибер-сердца)
             const dynamicScale = 1.0 + Math.sin(time * 2) * 0.015 + (audioModifier * 0.08);
+            
             coreMesh.scale.setScalar(dynamicScale);
-            wireframeMesh.scale.setScalar(dynamicScale * 1.01); // Контур чуть шире плит
+            wireframeMesh.scale.setScalar(dynamicScale * 1.008); // Контур чуть шире плит
 
-            // 5. Отрисовка кадра через WebGL
+            // 4. Отрисовка кадра через WebGL-контекст
             renderer.render(scene, camera);
         }
         // Базовые переменные стейта диалога
