@@ -138,75 +138,50 @@
         }
         // Создание 3D объектов сферы и света
         function createCoreGeometry() {
-            // Икосаэдр дает идеальную гексагональную сетку при триангуляции
-            const geometry = new THREE.IcosahedronGeometry(1.6, 2);
+            // Создаем красивую сферическую кибер-сетку (Икосаэдр)
+            const geometry = new THREE.IcosahedronGeometry(1.5, 2);
             
-            // Расщепляем вершины, чтобы каждая плитка-треугольник была изолированной панелью
-            const count = geometry.attributes.position.count;
-            const positionAttribute = geometry.attributes.position;
-            const customPositions = [];
-            
-            for ( let i = 0; i < count; i += 3 ) {
-                // Извлекаем вершины одного полигона
-                const ax = positionAttribute.getX(i), ay = positionAttribute.getY(i), az = positionAttribute.getZ(i);
-                const bx = positionAttribute.getX(i+1), by = positionAttribute.getY(i+1), bz = positionAttribute.getZ(i+1);
-                const cx = positionAttribute.getX(i+2), cy = positionAttribute.getY(i+2), cz = positionAttribute.getZ(i+2);
-                
-                // Слегка сжимаем полигон к его центру, образуя технологические швы (зазоры)
-                const center = { x: (ax+bx+cx)/3, y: (ay+by+cy)/3, z: (az+bz+cz)/3 };
-                const scale = 0.92; // Размер плитки (0.08 уходит в зазоры для лучей)
-                
-                customPositions.push(
-                    center.x + (ax - center.x) * scale, center.y + (ay - center.y) * scale, center.z + (az - center.z) * scale,
-                    center.x + (bx - center.x) * scale, center.y + (by - center.y) * scale, center.z + (bz - center.z) * scale,
-                    center.x + (cx - center.x) * scale, center.y + (cy - center.y) * scale, center.z + (cz - center.z) * scale
-                );
-            }
-            
-            const bufferGeometry = new THREE.BufferGeometry();
-            bufferGeometry.setAttribute('position', new THREE.Float32BufferAttribute(customPositions, 3));
-            bufferGeometry.computeVertexNormals();
-
-            // Материал 1: Плотные полупрозрачные плитки панциря
-            const faceMaterial = new THREE.MeshPhysicalMaterial({
-                color: 0x000c05,
-                emissive: 0x003311,
-                roughness: 0.2,
-                metalness: 0.9,
-                transparent: true,
-                opacity: 0.85,
-                side: THREE.DoubleSide
-            });
-            
-            coreMesh = new THREE.Mesh(bufferGeometry, faceMaterial);
-            coreGroup.add(coreMesh);
-
-            // Материал 2: Светящиеся неоновые ребра/грани плиток (Истинный кибер-контур)
-            const wireMaterial = new THREE.MeshBasicMaterial({
+            // Получаем чистые контуры ребер для неонового свечения
+            const edges = new THREE.EdgesGeometry(geometry);
+            const wireMaterial = new THREE.LineBasicMaterial({
                 color: 0x00ff66,
-                wireframe: true,
                 transparent: true,
-                opacity: 0.6
+                opacity: 0.7
             });
-            
-            wireframeMesh = new THREE.Mesh(bufferGeometry, wireMaterial);
-            wireframeMesh.scale.setScalar(1.002); // Микро-сдвиг наружу, чтобы исключить мерцание ребер
+            wireframeMesh = new THREE.LineSegments(edges, wireMaterial);
             coreGroup.add(wireframeMesh);
 
-            // 4. Внутренний источник света (пробивается сквозь швы плит)
-            internalLight = new THREE.PointLight(0x00ff66, 3, 10);
+            // Создаем внутренние плотные плитки панциря
+            const innerGeometry = new THREE.IcosahedronGeometry(1.47, 2);
+            const faceMaterial = new THREE.MeshStandardMaterial({
+                color: 0x051a0e,
+                roughness: 0.3,
+                metalness: 0.8,
+                flatShading: true, // Делает каждую плитку граненой и объемной, как на картинке!
+                transparent: true,
+                opacity: 0.95
+            });
+            coreMesh = new THREE.Mesh(innerGeometry, faceMaterial);
+            coreGroup.add(coreMesh);
+
+            // Внутренний пульсирующий источник света (пробивается сквозь сетку)
+            internalLight = new THREE.PointLight(0x00ff66, 4, 12);
             internalLight.position.set(0, 0, 0);
             scene.add(internalLight);
             
-            // Добавим мягкую глобальную подсветку для объема
-            const ambientLight = new THREE.AmbientLight(0x001105, 1.5);
+            // Направленный свет для красивой игры теней на гранях плит
+            const dirLight = new THREE.DirectionalLight(0x00ff66, 1.5);
+            dirLight.position.set(5, 5, 5);
+            scene.add(dirLight);
+
+            const ambientLight = new THREE.AmbientLight(0x000803, 2.0);
             scene.add(ambientLight);
         }
         // Главный цикл анимации и рендеринга WebGL сцены
         function animateWebGL() {
             requestAnimationFrame(animateWebGL);
 
-            // 1. Плавная интерполяция позиции (Easing) всей группы ядра
+            // 1. Плавная интерполяция позиции всей группы ядра
             coreGroup.position.y += (targetCenter.y - coreGroup.position.y) * 0.08;
             
             const currentScale = coreGroup.scale.x;
@@ -214,24 +189,23 @@
             coreGroup.scale.setScalar(nextScale);
 
             // 2. Кинетическое вращение сферы (ускоряется при активации голоса)
-            const rotationSpeedX = 0.003 + (audioModifier * 0.015);
-            const rotationSpeedY = 0.005 + (audioModifier * 0.02);
+            const rotationSpeedX = 0.004 + (audioModifier * 0.02);
+            const rotationSpeedY = 0.006 + (audioModifier * 0.025);
             coreGroup.rotation.x += rotationSpeedX;
             coreGroup.rotation.y += rotationSpeedY;
 
             // 3. Симуляция дыхания и аудио-пульсации внутреннего источника света
             const time = performance.now() * 0.002;
-            const pulse = Math.sin(time) * 0.15;
+            const pulse = Math.sin(time) * 0.2;
             
-            // Интенсивность света напрямую зависит от модификатора голоса
-            internalLight.intensity = 2.5 + (audioModifier * 8.0) + pulse;
+            internalLight.intensity = 3.0 + (audioModifier * 10.0) + pulse * 2.0;
 
-            // 4. Динамическая микро-деформация масштаба плиток от звука (Эффект живого ядра)
-            const dynamicMeshScale = 1.0 + Math.sin(time * 2) * 0.01 + (audioModifier * 0.06);
-            coreMesh.scale.setScalar(dynamicMeshScale);
-            wireframeMesh.scale.setScalar(dynamicMeshScale * 1.002);
+            // 4. Динамическая пульсация размера от звука (Эффект живого кибер-сердца)
+            const dynamicScale = 1.0 + Math.sin(time * 2) * 0.015 + (audioModifier * 0.08);
+            coreMesh.scale.setScalar(dynamicScale);
+            wireframeMesh.scale.setScalar(dynamicScale * 1.01); // Контур чуть шире плит
 
-            // 5. Отрисовка кадра через WebGL-контекст
+            // 5. Отрисовка кадра через WebGL
             renderer.render(scene, camera);
         }
         // Базовые переменные стейта диалога
