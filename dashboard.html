@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>APXe — Личный Кабинет v4.6</title>
+    <script src="https://telegram.org"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Courier New', Courier, monospace; user-select: none; }
+        body, html { width: 100%; height: 100%; background-color: #050505; color: #ffffff; overflow-x: hidden; }
+        
+        /* ЭКРАН ПОСТКВАНТОВОЙ БЛОКИРОВКИ ЛК */
+        #auth-gate { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #050505; z-index: 100; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 40px; text-align: center; transition: opacity 0.5s ease; }
+        .gate-title { font-size: 16px; letter-spacing: 4px; margin-bottom: 30px; font-weight: 300; color: #ffffff; }
+        .gate-input { background: transparent; border: none; border-bottom: 1px solid #333333; color: #ffffff; padding: 10px; font-size: 16px; text-align: center; letter-spacing: 6px; width: 260px; outline: none; margin-bottom: 20px; transition: border-color 0.3s; }
+        .gate-input:focus { border-color: #888888; }
+        .btn-enter { background: #ffffff; color: #000000; border: none; padding: 12px 30px; font-size: 11px; letter-spacing: 2px; font-weight: bold; cursor: pointer; border-radius: 2px; transition: background 0.3s; }
+        .btn-enter:hover { background: #cccccc; }
+        .gate-error { color: #ff3333; font-size: 11px; margin-top: 15px; height: 15px; opacity: 0; transition: opacity 0.3s; }
+
+        /* ЭКРАН ОЖИДАНИЯ И ПРЕЛОАДЕРА ЗАГРУЗКИ ЯДРА */
+        #preloader-gate { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #050505; z-index: 200; display: none; flex-direction: column; justify-content: center; align-items: center; padding: 40px; text-align: center; }
+        .loader-spinner { width: 40px; height: 40px; border: 1px dashed rgba(255,255,255,0.3); border-radius: 50%; animation: spin 4s linear infinite; margin-bottom: 30px; }
+        .loader-text { font-size: 12px; letter-spacing: 2px; color: #ffffff; margin-bottom: 15px; }
+        .loader-sub { font-size: 10px; color: #555555; max-width: 300px; line-height: 1.5; margin-bottom: 25px; }
+        .loader-logs { font-size: 9px; color: #444444; text-align: left; width: 280px; height: 60px; overflow: hidden; line-height: 1.6; border-top: 1px solid #111111; padding-top: 10px; }
+
+        /* ГЛАВНАЯ ПАНЕЛЬ УПРАВЛЕНИЯ (СКРЫТА ДО ВВОДА ПАРОЛЯ) */
+        #dashboard-main { max-width: 600px; margin: 0 auto; padding: 25px; display: none; min-height: 100vh; flex-direction: column; justify-content: space-between; }
+        
+        header { display: flex; justify-content: space-between; align-items: center; width: 100%; border-bottom: 1px solid rgba(255, 255, 255, 0.05); padding-bottom: 15px; margin-bottom: 25px; }
+        .btn-action { background: transparent; border: 1px solid #444444; color: #ffffff; padding: 8px 16px; font-size: 11px; cursor: pointer; border-radius: 3px; font-weight: bold; outline: none; transition: all 0.3s; letter-spacing: 1px; }
+        .btn-action:hover { background: #ffffff; color: #000000; border-color: #ffffff; }
+        .status-badge { font-size: 11px; color: #888888; font-weight: bold; letter-spacing: 1px; }
+        
+        .balance-container { display: flex; align-items: center; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.15); border-radius: 3px; padding: 4px 4px 4px 12px; font-size: 11px; color: #ffffff; font-weight: bold; }
+        .btn-deposit { background: #ffffff; color: #000000; border: none; font-size: 14px; font-weight: bold; width: 22px; height: 22px; cursor: pointer; margin-left: 10px; display: flex; align-items: center; justify-content: center; border-radius: 2px; transition: background 0.2s; outline: none; }
+        .btn-deposit:hover { background: #cccccc; }
+
+        .panel-card { background: rgba(15, 15, 15, 0.6); border: 1px solid rgba(255,255,255,0.05); border-radius: 4px; padding: 20px; margin-bottom: 20px; backdrop-filter: blur(10px); }
+        .card-header { font-size: 10px; color: #666666; letter-spacing: 1px; margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.02); padding-bottom: 6px; display: flex; justify-content: space-between; }
+        
+        .core-status-text { font-size: 14px; letter-spacing: 1px; font-weight: bold; margin-bottom: 10px; }
+        .progress-bar-bg { width: 100%; height: 3px; background: rgba(255,255,255,0.03); overflow: hidden; margin-top: 15px; }
+        .progress-bar-fill { width: 0%; height: 100%; background: #ffffff; box-shadow: 0 0 8px rgba(255,255,255,0.4); transition: width 0.5s ease; }
+
+        .btn-vault { width: 100%; background: transparent; border: 1px solid #444444; color: #ffffff; padding: 16px; font-size: 12px; letter-spacing: 2px; font-weight: bold; cursor: pointer; border-radius: 4px; transition: all 0.3s; margin-top: 5px; }
+        .btn-vault:hover:not(:disabled) { background: #ffffff; color: #000000; border-color: #ffffff; }
+        .btn-vault:disabled { opacity: 0.2; cursor: not-allowed; border-color: #222222; color: #555555; }
+        .vault-hint { font-size: 11px; color: #555555; text-align: center; margin-top: 8px; line-height: 1.4; }
+
+        #billing-modal { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.9); z-index: 150; display: none; justify-content: center; align-items: center; padding: 25px; backdrop-filter: blur(8px); }
+        .billing-box { background: #0d0d0d; border: 1px solid #333333; width: 100%; max-width: 420px; padding: 25px; border-radius: 6px; position: relative; }
+        .modal-title { font-size: 13px; letter-spacing: 2px; color: #ffffff; margin-bottom: 20px; border-bottom: 1px solid #222222; padding-bottom: 10px; text-align: center; }
+        
+        .tariff-list { display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px; }
+        .tariff-card { background: #141414; border: 1px solid #222222; padding: 14px; border-radius: 4px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: all 0.2s; }
+        .tariff-card:hover { border-color: #666666; background: #1a1a1a; }
+        .tariff-info { text-align: left; }
+        .tariff-qcu { font-size: 13px; font-weight: bold; letter-spacing: 1px; }
+        .tariff-desc { font-size: 9px; color: #666666; margin-top: 4px; }
+        .tariff-price { font-size: 13px; font-weight: bold; color: #ffffff; }
+        .tariff-card.premium { border-color: rgba(255,255,255,0.15); box-shadow: 0 0 10px rgba(255,255,255,0.02); }
+
+        .btn-close-modal { background: transparent; border: none; color: #555555; position: absolute; top: 12px; right: 15px; font-size: 16px; cursor: pointer; outline: none; }
+        .btn-close-modal:hover { color: #ffffff; }
+
+        .rag-log-box { font-size: 11px; color: #666666; line-height: 1.6; height: 90px; overflow-y: auto; }
+        .rag-item { margin-bottom: 6px; border-left: 1px solid #222222; padding-left: 8px; }
+        
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        footer { text-align: center; font-size: 10px; color: #333333; letter-spacing: 2px; margin-top: 30px; padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
+    </style>
+</head>
+<body>
+    <!-- КОНТУР А: ЭКРАН ПОСТКВАНТОВОЙ БЛОКИРОВКИ ЛК -->
+    <div id="auth-gate">
+        <div class="gate-title">// ВХОД В ЛИЧНЫЙ КАБИНЕТ //</div>
+        <input type="password" class="gate-input" id="gatePasswordField" placeholder="ПИН-КОД ДОСТУПА" maxlength="6">
+        <button class="btn-enter" onclick="unlockDashboard()">ВЕРИФИКАЦИЯ</button>
+        <div class="gate-error" id="gateErrorText">КРИТИЧЕСКАЯ ОШИБКА: Ключ не совпадает.</div>
+    </div>
+
+    <!-- КРИТИЧЕСКИЙ ОНЛАЙН-КОНТУР: ПРЕЛОАДЕР ЗАГРУЗКИ КВАНТОВОГО ЯДРА -->
+    <div id="preloader-gate">
+        <div class="loader-spinner"></div>
+        <div class="loader-text" id="loaderStageText">// ПОДКЛЮЧЕНИЕ К СУПЕРКОМПЬЮТЕРУ //</div>
+        <div class="loader-sub">Инициализация защищенного TWA-канала. Распределение вычислительной мощности GPU для рендеринга когнитивной матрицы...</div>
+        <div class="loader-logs" id="loaderLogsBox">
+            <div>[SYS]: Starting quantum conduit...</div>
+        </div>
+    </div>
+
+    <!-- КОНТУР Б: ГЛАВНАЯ ПАНЕЛЬ УПРАВЛЕНИЯ -->
+    <div id="dashboard-main">
+        <div style="width: 100%;">
+            <header>
+                <div class="status-badge">APXe v1.0.4-beta</div>
+                <div class="balance-container">
+                    БАЛАНС: <span id="userBalanceText">1000</span> QCU
+                    <button class="btn-deposit" onclick="openBillingModal()">+</button>
+                </div>
+            </header>
+
+            <!-- БЛОК 1: МОНИТОР КРИСТАЛЛИЗАЦИИ ЯДРА -->
+            <div class="panel-card">
+                <div class="card-header">
+                    <div>// МОНИТОРИНГ ЦИФРОВОГО СЛЕПКА //</div>
+                    <div id="coreStageLabel">ВЕКТОРЫ</div>
+                </div>
+                <div class="core-status-text" id="coreStatusDisplay">ЗАГРУЗКА ДАННЫХ...</div>
+                <div class="progress-bar-bg"><div class="progress-bar-fill" id="coreProgressBarFill"></div></div>
+                <div style="margin-top: 15px; text-align: right;" id="resumeActionBox">
+                    <!-- Сюда JS подставит элитную кнопку запуска прелоадера -->
+                </div>
+            </div>
+
+            <!-- БЛОК 2: КВАНТОВЫЙ СЕЙФ (ИЗВЛЕЧЕНИЕ АРХИВА) -->
+            <div class="panel-card">
+                <div class="card-header"><div>// СЕЙФ: ЗАПЕЧАТАННОЕ ЯДРО //</div><div>10000 QCU</div></div>
+                <button class="btn-vault" id="downloadVaultBtn" onclick="extractQuantumArchive()" disabled>ИЗВЛЕЧЬ КВАНТОВЫЙ АРХИВ (.ZIP)</button>
+                <div class="vault-hint" id="vaultHintText">Функция заблокирована. Требуется достичь минимум 95.0% кристаллизации сознания для компиляции весов модели.</div>
+            </div>
+
+            <!-- БЛОК 3: ОНЛАЙН ИИ-АССИСТЕНТ -->
+            <div class="panel-card">
+                <div class="card-header"><div>// АВТОНОМНЫЙ ОНЛАЙН АССИСТЕНТ //</div><div>ТАРИФИКАЦИЯ</div></div>
+                <div class="vault-hint" style="text-align: left; margin-top: 0; margin-bottom: 12px; color: #888888;">
+                    Синхронизация голосового и текстового контура общения. Стоимость: 10 QCU за голосовой запрос/ответ, 3 QCU за текстовый запрос/ответ.
+                </div>
+                <button class="btn-vault" id="startAssistantBtn" onclick="launchAIAssistant()" disabled>ИНИЦИАЛИЗИРОВАТЬ АССИСТЕНТА</button>
+            </div>
+
+            <!-- БЛОК 4: РЕНТГЕН РАЗУМА -->
+            <div class="panel-card">
+                <div class="card-header"><div>// РЕНТГЕН РАЗУМА: ВЫПИСКА RAG-МАРКЕРОВ //</div></div>
+                <div class="rag-log-box" id="ragLogsContainer">
+                    <div class="rag-item">Ожидание верификации когнитивного слоя...</div>
+                </div>
+            </div>
+        </div>
+
+        <footer>[ ТЕЛО — ЭТО ЛИШЬ ВРЕМЕННЫЙ ИНТЕРФЕЙС ]</footer>
+    </div>
+
+    <!-- МОДАЛЬНОЕ ОКНО БИЛЛИНГА -->
+    <div id="billing-modal">
+        <div class="billing-box">
+            <button class="btn-close-modal" onclick="closeBillingModal()">✕</button>
+            <div class="modal-title">// РАСШИРЕНИЕ ВЫЧИСЛИТЕЛЬНОГО КОНТУРА //</div>
+            <div class="tariff-list">
+                <div class="tariff-card" onclick="purchaseTariff(1000, 490)">
+                    <div class="tariff-info">
+                        <div class="tariff-qcu">1000 QCU</div>
+                        <div class="tariff-desc">~20 раундов базового психоанализа</div>
+                    </div>
+                    <div class="tariff-price">490 ₽</div>
+                </div>
+                <div class="tariff-card" onclick="purchaseTariff(2000, 890)">
+                    <div class="tariff-info">
+                        <div class="tariff-qcu">2000 QCU</div>
+                        <div class="tariff-desc">Полное покрытие этапа [APXe_Vectors]</div>
+                    </div>
+                    <div class="tariff-price">890 ₽</div>
+                </div>
+                <div class="tariff-card" onclick="purchaseTariff(5000, 1990)">
+                    <div class="tariff-info">
+                        <div class="tariff-qcu">5000 QCU</div>
+                        <div class="tariff-desc">Оптимальный объем для глубокой калибровки</div>
+                    </div>
+                    <div class="tariff-price">1990 ₽</div>
+                </div>
+                <div class="tariff-card premium" onclick="purchaseTariff(15000, 4990)">
+                    <div class="tariff-info">
+                        <div class="tariff-qcu">15000 QCU [ПРЕМИУМ]</div>
+                        <div class="tariff-desc">НЕТ дневных лимитов. Приоритетный доступ к GPU-вычислениям.</div>
+                    </div>
+                    <div class="tariff-price">4990 ₽</div>
+                </div>
+            </div>
+        </div>
+    </div>
+        <script>
+        // Имитация данных сессии из БД для демонстрации интерфейса
+        let qcuBalance = 1000;
+        let progress = 42.5; 
+        let isSealed = false;
+        let currentStage = 'Neuromechanics'; 
+        
+        const mockRagRecords = [
+            "[RAG_FIXED]: Обнаружена высокая склонность к рационализации этических дилемм.",
+            "[RAG_FIXED]: Зафиксирован экзистенциальный страх ментального увядания.",
+            "[RAG_FIXED]: Паттерн принятия решений: минимизация личных рисков в ущерб коллективу.",
+            "[RAG_FIXED]: Маркер совести жестко привязан к паттернам родительского одобрения."
+        ];
+
+        // 1. КОНТУР АВТОРИЗАЦИИ ЛК (Квантово-защищенный ПИН-код)
+        function unlockDashboard() {
+            const passwordField = document.getElementById('gatePasswordField');
+            const errorText = document.getElementById('gateErrorText');
+            const pin = passwordField.value.trim();
+
+            if (pin === "000000") {
+                document.getElementById('auth-gate').style.opacity = '0';
+                setTimeout(() => {
+                    document.getElementById('auth-gate').style.display = 'none';
+                    document.getElementById('dashboard-main').style.display = 'flex';
+                    renderDashboardData();
+                }, 500);
+            } else {
+                errorText.style.opacity = '1';
+                passwordField.value = "";
+            }
+        }
+
+        // 2. ОТРИСОВКА ИНТЕРФЕЙСА НА ОСНОВЕ ДАННЫХ СЕРВЕРА
+        function renderDashboardData() {
+            document.getElementById('userBalanceText').innerText = qcuBalance;
+            document.getElementById('coreProgressBarFill').style.width = progress + "%";
+            
+            const statusDisplay = document.getElementById('coreStatusDisplay');
+            const stageLabel = document.getElementById('coreStageLabel');
+            const resumeBox = document.getElementById('resumeActionBox');
+            const vaultBtn = document.getElementById('downloadVaultBtn');
+            const vaultHint = document.getElementById('vaultHintText');
+            const assistantBtn = document.getElementById('startAssistantBtn');
+
+            const stageNames = {
+                'Vectors': 'APXe_Vectors (0-30%)',
+                'Neuromechanics': 'APXe_Neuromechanics (30-60%)',
+                'Rems': 'APXe_Rems (60-90%)',
+                'Mirror_Test': 'APXe_Mirror_Test (90-100%)',
+                'Super_Calibration': 'СВЕРХ-КРИСТАЛЛИЗАЦИЯ (100%+)'
+            };
+            stageLabel.innerText = stageNames[currentStage] || 'КАЛИБРОВКА';
+
+            if (progress >= 100.0 || isSealed) {
+                statusDisplay.innerText = `ЯДРО ЗАПЕЧАТАНО [ПРИОРИТЕТНЫЙ СЛЕД: ${progress}%]`;
+                resumeBox.innerHTML = `<button class="btn-action" onclick="startQuantumConduitLoad()">ДОКАЛИБРОВКА ЯДРА (100%+)</button>`;
+                
+                vaultBtn.disabled = false;
+                vaultHint.innerText = "Контур верифицирован. Квантовый архив личности сгенерирован и заблокирован алгоритмом APXe_Safe_256 (AES-256 Постквантовая защита).";
+                assistantBtn.disabled = false;
+            } else {
+                statusDisplay.innerText = `СИНХРОНИЗАЦИЯ: ${progress}% [КОНТУР ОТКРЫТ]`;
+                resumeBox.innerHTML = `<button class="btn-action" onclick="startQuantumConduitLoad()">ПРОДОЛЖИТЬ СЕССИЮ</button>`;
+                
+                vaultBtn.disabled = true;
+                assistantBtn.disabled = true;
+            }
+
+            const logsContainer = document.getElementById('ragLogsContainer');
+            logsContainer.innerHTML = "";
+            mockRagRecords.forEach(record => {
+                const item = document.createElement('div');
+                item.className = 'rag-item';
+                item.innerText = record;
+                logsContainer.appendChild(item);
+            });
+        }
+
+        // 3. ЭЛИТНЫЙ КВАНТОВЫЙ ПРЕЛОАДЕР (Устранение черного экрана при переходе к TWA)
+        function startQuantumConduitLoad() {
+            // Скрываем дашборд, выводим оверлей прелоадера
+            document.getElementById('dashboard-main').style.display = 'none';
+            const preloader = document.getElementById('preloader-gate');
+            preloader.style.display = 'flex';
+
+            const stageText = document.getElementById('loaderStageText');
+            const logsBox = document.getElementById('loaderLogsBox');
+
+            // Массив бегущих логов для удержания внимания
+            const preloaderLogs = [
+                "[SYS]: Establishing E2EE quantum handshake...",
+                "[SYS]: Direct connection to GPU cluster accepted.",
+                "[SYS]: Initializing neuro-network weights...",
+                "[RAG]: Loading personal knowledge graph database...",
+                "[STT]: Synchronizing vocal frequency analyzers...",
+                "[SYS]: Allocating server-side computing pool...",
+                "[SYS]: Rendering 3D-core coordinate grid...",
+                "[STATUS]: Identity matrix compilation - 100% OK."
+            ];
+
+            // Массив меняющихся заголовков по мере загрузки
+            const stages = [
+                "// ИНИЦИАЛИЗАЦИЯ ЗАЩИЩЕННОГО КОНТУРА //",
+                "// ПОДКЛЮЧЕНИЕ К СУПЕРКОМПЬЮТЕРУ //",
+                "// РАЗВЕРТЫВАНИЕ НЕЙРОМАТРИЦЫ //",
+                "// СИНХРОНИЗАЦИЯ КВАНТОВОГО ШЛЮЗА //"
+            ];
+
+            let logIndex = 0;
+            let stageIndex = 0;
+
+            // Интервал вывода бегущих машинных логов
+            const logInterval = setInterval(() => {
+                if (logIndex < preloaderLogs.length) {
+                    const newLog = document.createElement('div');
+                    newLog.innerText = preloaderLogs[logIndex];
+                    logsBox.appendChild(newLog);
+                    logsBox.scrollTop = logsBox.scrollHeight;
+                    logIndex++;
+                }
+            }, 6000); // Распределяем логи на минуту ожидания
+
+            // Интервал смены технологических заголовков
+            const stageInterval = setInterval(() => {
+                if (stageIndex < stages.length) {
+                    stageText.innerText = stages[stageIndex];
+                    stageIndex++;
+                }
+            }, 12000);
+
+            // Финальный триггер редиректа ровно через 55-60 секунд ожидания
+            setTimeout(() => {
+                clearInterval(logInterval);
+                clearInterval(stageInterval);
+                window.location.href = "./calibration.html";
+            }, 55000);
+        }
+
+        // 4. БОКС КВАНТОВОГО СЕЙФА (Извлечение архива с паролем)
+        function extractQuantumArchive() {
+            if (qcuBalance < 10000) {
+                alert("ОТКАЗ СЕТЕВОГО ШЛЮЗА: Недостаточно средств для декомпиляции весов модели. Требуется 10 000 QCU.");
+                return;
+            }
+
+            const archivePassword = prompt("ВНИМАНИЕ: Запуск постквантового шифрования APXe_Safe_256.\n\nВведите секретный ключ для шифрования архива личности (минимум 8 символов).\n\nВНИМАНИЕ: ИИ зашьет этот ключ в структуру AES-256. Без него архив невозможно будет распаковать ни на одном компьютере мира:");
+            
+            if (!archivePassword || archivePassword.length < 8) {
+                alert("ОШИБКА БЕЗОПАСНОСТИ: Длина ключа не соответствует протоколу постквантовой защиты.");
+                return;
+            }
+
+            qcuBalance -= 10000;
+            document.getElementById('userBalanceText').innerText = qcuBalance;
+
+            alert("Инициализация глубокого рендеринга... Веса модели упакованы в контейнер .GGUF, защищены вашим персональным ключом и сжаты криптографическим методом AES-256.\n\nЗапуск скачивания квантового архива.");
+            window.open("https://apxe.io", "_blank");
+            renderDashboardData();
+        }
+
+        // 5. ИНИЦИАЛИЗАЦИЯ ИИ-АССИСТЕНТА
+        function launchAIAssistant() {
+            alert("КОНТУР СИНХРОНИЗИРОВАН: Онлайн ИИ-ассистент активирован.\n\nТарификация включена: 3 QCU за текст / 10 QCU за голос.");
+        }
+
+        // 6. МОДАЛЬНОЕ ОКНО БИЛЛИНГА
+        function openBillingModal() { document.getElementById('billing-modal').style.display = 'flex'; }
+        function closeBillingModal() { document.getElementById('billing-modal').style.display = 'none'; }
+        
+        function purchaseTariff(qcuAmount, priceAmount) {
+            alert(`Инициализация внешнего шлюза оплаты...\n\nЗапрос: Покупка пакета +${qcuAmount} QCU за ${priceAmount} ₽ через СБП/Рубли.`);
+            qcuBalance += qcuAmount;
+            closeBillingModal();
+            renderDashboardData();
+        }
+    </script>
+</body>
+</html>
