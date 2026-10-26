@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>APXe — Контур Калибровки v4.1</title>
+    <title>APXe — Контур Калибровки v4.2</title>
     <script src="https://telegram.org"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Courier New', Courier, monospace; user-select: none; }
@@ -44,7 +44,7 @@
     </style>
 </head>
 <body>
-    <div id="canvas-container"></div>
+    <div id="canvas-container"><canvas id="coreCanvas"></canvas></div>
     <div id="floating-logs"></div>
     <div class="ui-layer">
         <div class="interactive" style="width: 100%;">
@@ -71,101 +71,62 @@
         </div>
     </div>
     <script>
-        // Инициализация стабильного и быстрого контекста Canvas 2D
-        const canvas = document.createElement('canvas');
+        const canvas = document.getElementById('coreCanvas');
         const ctx = canvas.getContext('2d');
-        
-        function resizeCanvas() { 
-            canvas.width = window.innerWidth; 
-            canvas.height = window.innerHeight; 
-        }
-        window.addEventListener('resize', resizeCanvas); 
-        resizeCanvas();
-        
-        // Автоматическое добавление холста в графический контейнер
-        document.getElementById('canvas-container').appendChild(canvas);
+        function resizeCanvas() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+        window.addEventListener('resize', resizeCanvas); resizeCanvas();
 
-        // Геометрия и динамика ядра
         let currentCenter = { x: canvas.width / 2, y: canvas.height / 2 };
         let targetCenter = { x: canvas.width / 2, y: canvas.height / 2 };
-        let currentRadius = 140; 
-        let targetRadius = 140;
-        let appState = 0; 
-        let audioModifier = 0; 
-        let isRecording = false;
+        let currentRadius = 140; let targetRadius = 140;
+        let appState = 0; let audioModifier = 0; let isRecording = false;
 
-        // Построение икосаэдрического панциря (12 колец, 20 сегментов)
-        const rings = 12; 
-        const segments = 20; 
-        const spherePoints = [];
-        
+        // Построение оригинальной сетки сферы (Тонкие контурные линии)
+        const rings = 14; const segments = 22; const spherePoints = [];
         for (let i = 0; i <= rings; i++) {
             let phi = (i / rings) * Math.PI; 
             for (let j = 0; j < segments; j++) {
                 let theta = (j / segments) * Math.PI * 2; 
                 spherePoints.push({
-                    x: Math.sin(phi) * Math.cos(theta), 
-                    y: Math.cos(phi), 
-                    z: Math.sin(phi) * Math.sin(theta),
-                    baseX: Math.sin(phi) * Math.cos(theta), 
-                    baseY: Math.cos(phi), 
-                    baseZ: Math.sin(phi) * Math.sin(theta)
+                    x: Math.sin(phi) * Math.cos(theta), y: Math.cos(phi), z: Math.sin(phi) * Math.sin(theta),
+                    baseX: Math.sin(phi) * Math.cos(theta), baseY: Math.cos(phi), baseZ: Math.sin(phi) * Math.sin(theta)
                 });
             }
         }
 
-        let angleX = 0.003; 
-        let angleY = 0.005; 
-        let globalPhase = 0;
-
-        function updateCoreTargetPositions() {
-            if (appState === 1) { 
-                targetCenter.y = window.innerHeight * 0.32; 
-                targetRadius = 85; 
-            } else { 
-                targetCenter.y = window.innerHeight * 0.52; 
-                targetRadius = 145; 
-            }
-            targetCenter.x = window.innerWidth / 2;
-        }
-        // Рендеринг кибер-панциря с эффектом объема и неоновыми швами
+        let angleX = 0.003; let angleY = 0.005; let globalPhase = 0;
         function drawCyberCore() {
-            updateCoreTargetPositions();
+            if (appState === 1) { targetCenter.y = window.innerHeight * 0.32; targetRadius = 85; } 
+            else { targetCenter.y = window.innerHeight * 0.52; targetRadius = 145; }
+            targetCenter.x = window.innerWidth / 2;
 
             currentCenter.x += (targetCenter.x - currentCenter.x) * 0.1;
             currentCenter.y += (targetCenter.y - currentCenter.y) * 0.1;
             currentRadius += (targetRadius - currentRadius) * 0.1;
 
-            ctx.fillStyle = '#000000'; 
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
+            ctx.fillStyle = '#000000'; ctx.fillRect(0, 0, canvas.width, canvas.height);
             globalPhase += 0.025;
-            let dynamicRadius = currentRadius + (audioModifier * 35);
+            
+            // Динамическая пульсация радиуса сферы от голоса пользователя
+            let dynamicRadius = currentRadius + (audioModifier * 30);
 
             let cosX = Math.cos(angleX); let sinX = Math.sin(angleX);
             let cosY = Math.cos(angleY); let sinY = Math.sin(angleY);
 
-            // Физика волновой деформации плит от голоса
             spherePoints.forEach((p, idx) => {
-                let wave = Math.sin(globalPhase + idx * 0.2) * (0.03 + audioModifier * 0.1);
-                let r = 1.0 + wave;
+                let wave = Math.sin(globalPhase + idx * 0.15) * (0.02 + audioModifier * 0.08);
+                let r = 1.0 + wave * 0.3;
                 let x1 = p.baseX * r; let y1 = p.baseY * r; let z1 = p.baseZ * r;
                 let x2 = x1 * cosY - z1 * sinY; let z2 = z1 * cosY + x1 * sinY;
                 let y3 = y1 * cosX - z2 * sinX; let z3 = z2 * cosX + y1 * sinX;
                 p.x = x2; p.y = y3; p.z = z3;
             });
 
-            angleX += 0.002 + (audioModifier * 0.005);
-            angleY += 0.003 + (audioModifier * 0.007);
-            
-            // Сортировка полигонов по глубине (Z-буфер)
+            angleX += 0.001 + (audioModifier * 0.004);
+            angleY += 0.002 + (audioModifier * 0.006);
             spherePoints.sort((a, b) => b.z - a.z);
 
             ctx.save();
-            // Включаем нативное размытие для эффекта неонового свечения граней
-            ctx.shadowBlur = 10;
-            ctx.shadowColor = '#00ff66';
-
             for (let i = 0; i < rings - 1; i++) {
                 for (let j = 0; j < segments; j++) {
                     let idx1 = i * segments + j;
@@ -176,42 +137,34 @@
                     let p1 = spherePoints[idx1]; let p2 = spherePoints[idx2];
                     let p3 = spherePoints[idx3]; let p4 = spherePoints[idx4];
 
-                    // Жесткое отсечение задней сферы (убирает кашу из ребер)
-                    if (p1.z <= 0.1) continue;
+                    // ОТСЕЧЕНИЕ ЗАДНЕЙ СТОРОНЫ (Z > 0) — Исключает хаос линий
+                    if (p1.z <= 0.0) continue;
 
-                    // Отрисовка с небольшим сжатием к центру (эффект технологических швов)
                     let sx1 = currentCenter.x + p1.x * dynamicRadius; let sy1 = currentCenter.y + p1.y * dynamicRadius;
                     let sx2 = currentCenter.x + p2.x * dynamicRadius; let sy2 = currentCenter.y + p2.y * dynamicRadius;
                     let sx3 = currentCenter.x + p3.x * dynamicRadius; let sy3 = currentCenter.y + p3.y * dynamicRadius;
                     let sx4 = currentCenter.x + p4.x * dynamicRadius; let sy4 = currentCenter.y + p4.y * dynamicRadius;
 
-                    let opacity = 0.2 + (p1.z * 0.8);
+                    let opacity = 0.15 + (p1.z * 0.8);
 
                     ctx.beginPath();
-                    ctx.moveTo(sx1, sy1); 
-                    ctx.lineTo(sx2, sy2); 
-                    ctx.lineTo(sx3, sy3); 
-                    ctx.lineTo(sx4, sy4);
+                    ctx.moveTo(sx1, sy1); ctx.lineTo(sx2, sy2); ctx.lineTo(sx3, sy3); ctx.lineTo(sx4, sy4);
                     ctx.closePath();
 
-                    // Глубокий объемный градиент внутри плит (имитация Ambient Occlusion)
-                    let tileGlow = ctx.createRadialGradient(sx1, sy1, 2, sx1, sy1, dynamicRadius * 0.5);
-                    tileGlow.addColorStop(0, `rgba(0, 40, 15, ${opacity * 0.9})`);
-                    tileGlow.addColorStop(0.6, `rgba(0, 10, 4, ${opacity * 0.95})`);
-                    tileGlow.addColorStop(1, '#000000');
+                    let tileGlow = ctx.createRadialGradient(sx1, sy1, 2, sx1, sy1, dynamicRadius * 0.4);
+                    tileGlow.addColorStop(0, `rgba(0, 255, 102, ${opacity * 0.35})`);
+                    tileGlow.addColorStop(1, 'rgba(0, 10, 5, 0.9)');
                     
-                    ctx.fillStyle = tileGlow; 
-                    ctx.fill();
-                    
-                    // Светящийся силовой контур
-                    ctx.strokeStyle = `rgba(0, 255, 102, ${opacity * 0.95})`;
-                    ctx.lineWidth = 1.6;
+                    ctx.fillStyle = tileGlow; ctx.fill();
+                    ctx.strokeStyle = `rgba(0, 255, 102, ${opacity * 0.75})`;
+                    ctx.lineWidth = 1.4;
                     ctx.stroke();
                 }
             }
             ctx.restore();
             requestAnimationFrame(drawCyberCore);
         }
+        drawCyberCore();
         // Базовые переменные стейта диалога
         let qcuBalance = 1000; 
         let progress = 0; 
@@ -239,9 +192,9 @@
         }
         
         function setInputState(isFocused) { 
+            // Сдвигаем ядро вверх, только если не идет запись голоса
             if (!isRecording) {
                 appState = isFocused ? 1 : 0; 
-                updateCoreTargetPositions();
             }
         }
 
@@ -279,8 +232,7 @@
             inputField.value = "";
             inputField.placeholder = "Введите ответ или активируйте микрофон...";
             audioModifier = 0;
-            appState = 0; 
-            updateCoreTargetPositions();
+            appState = 0; // Возвращаем ядро в центр
             inputField.blur();
         }
         // Отправка текстового ответа
@@ -348,7 +300,7 @@
             }
         }
 
-        // Появление плавающих неоновых тегов строго вокруг динамического центра сферы
+        // Появление плавающих неоновых тегов строго вокруг текущего центра сферы
         function spawnFloatingTag() {
             const container = document.getElementById('floating-logs');
             if (!container) return;
@@ -363,7 +315,7 @@
             const angle = Math.random() * Math.PI * 2; 
             const distance = 90 + Math.random() * 50;
             
-            // Расчет координат на экране от текущего физического центра ядра
+            // Расчет координат от реального центра холста
             let x = currentCenter.x + Math.cos(angle) * distance;
             let y = currentCenter.y + Math.sin(angle) * distance;
             
@@ -377,19 +329,14 @@
             }, 4000);
         }
 
-        // Точка входа: инициализация сцены при полной загрузке страницы
-        window.onload = function() {
-            animateWebGL();
-            
-            // Автоматический старт первого раунда с исправленным индексом массива
-            setTimeout(() => {
-                typeAIResponse(aiQuestions[0]); 
-                currentRound = 1;
-                document.getElementById('currentStageText').innerText = `РАУНД ${currentRound}/${maxRounds}`;
-                document.getElementById('progressPercent').innerText = "20.0%";
-                document.getElementById('progressBar').style.width = "20%";
-            }, 1000);
-        };
+        // Автоматический старт первого раунда
+        setTimeout(() => {
+            typeAIResponse(aiQuestions[0]); 
+            currentRound = 1;
+            document.getElementById('currentStageText').innerText = `РАУНД ${currentRound}/${maxRounds}`;
+            document.getElementById('progressPercent').innerText = "20.0%";
+            document.getElementById('progressBar').style.width = "20%";
+        }, 1000);
     </script>
 </body>
 </html>
