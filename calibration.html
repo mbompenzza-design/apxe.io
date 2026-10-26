@@ -3,33 +3,58 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>APXe — Контур Калибровки v4.3</title>
+    <title>APXe — Контур Калибровки v4.4</title>
     <script src="https://telegram.org"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Courier New', Courier, monospace; user-select: none; }
-        body, html { width: 100%; height: 100%; background-color: #000000; color: #ffffff; overflow: hidden; }
+        body, html { width: 100%; height: 100%; background-color: #050505; color: #ffffff; overflow: hidden; }
         
-        #canvas-container { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; }
+        /* Контейнер центрирования оригинальной сферы */
+        #sphere-viewport { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; display: flex; justify-content: center; align-items: center; transition: all 0.4s ease; }
         #floating-logs { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1.5; pointer-events: none; overflow: hidden; }
         
+        /* ТА САМАЯ ОРИГИНАЛЬНАЯ СФЕРА С ГЛАВНОГО ЭКРАНА */
+        .core-sphere {
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(255,255,255,0.15) 0%, rgba(0,0,0,0) 70%);
+            border: 1px dashed rgba(255, 255, 255, 0.3);
+            animation: rotate-core 20s linear infinite;
+            position: relative;
+            transition: transform 0.1s ease; /* Для плавной пульсации от голоса */
+        }
+        .core-sphere::after {
+            content: '';
+            position: absolute;
+            top: 15%;
+            left: 15%;
+            width: 70%;
+            height: 70%;
+            border-radius: 50%;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            animation: rotate-core-reverse 10s linear infinite;
+        }
+        
+        /* Стили слоев интерфейса */
         .ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 2; pointer-events: none; display: flex; flex-direction: column; justify-content: space-between; padding: 20px; padding-bottom: calc(20px + env(safe-area-inset-bottom)); }
         .interactive { pointer-events: auto; }
         
-        header { display: flex; justify-content: space-between; align-items: center; width: 100%; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 12px; }
+        header { display: flex; justify-content: space-between; align-items: center; width: 100%; border-bottom: 1px solid rgba(255,255,255,0.03); padding-bottom: 12px; }
         .btn-exit { background: transparent; border: 1px solid #333333; color: #ffffff; padding: 6px 12px; font-size: 11px; cursor: pointer; border-radius: 3px; font-weight: bold; transition: all 0.3s; outline: none; }
         .btn-exit:hover { background: rgba(255,255,255,0.1); border-color: #ffffff; }
         .qcu-badge { background: rgba(0,0,0,0.85); border: 1px solid rgba(255,255,255,0.15); padding: 6px 12px; font-size: 11px; color: #ffffff; font-weight: bold; border-radius: 3px; }
         
-        .ai-prompter-box { width: 100%; margin-top: 15px; background: rgba(0,0,0,0.8); border-left: 2px solid #ffffff; padding: 12px; min-height: 60px; backdrop-filter: blur(5px); }
+        .ai-prompter-box { width: 100%; margin-top: 15px; background: rgba(5,5,5,0.8); border-left: 2px solid #ffffff; padding: 12px; min-height: 60px; backdrop-filter: blur(5px); }
         .ai-title { font-size: 10px; color: #666666; letter-spacing: 1px; margin-bottom: 4px; }
         .ai-text { font-size: 13px; line-height: 1.4; color: #ffffff; min-height: 18px; white-space: pre-wrap; word-break: break-word; }
         
         .control-container { width: 100%; display: flex; flex-direction: column; gap: 12px; }
         .tracker-mini { display: flex; justify-content: space-between; font-size: 10px; color: #666666; letter-spacing: 1px; }
         .progress-bar-bg { width: 100%; height: 2px; background: rgba(255,255,255,0.05); position: relative; overflow: hidden; }
-        .progress-bar-fill { width: 0%; height: 100%; background: #ffffff; transition: width 0.4s ease; box-shadow: 0 0 10px rgba(255,255,255,0.5); }
+        .progress-bar-fill { width: 0%; height: 100%; background: #ffffff; transition: width 0.4s ease; box-shadow: 0 0 10px rgba(255,255,255,0.3); }
         
-        .input-circuit-box { display: flex; background: rgba(0,0,0,0.95); border: 1px solid rgba(255,255,255,0.15); border-radius: 4px; padding: 6px; backdrop-filter: blur(10px); }
+        .input-circuit-box { display: flex; background: rgba(5,5,5,0.95); border: 1px solid rgba(255,255,255,0.15); border-radius: 4px; padding: 6px; backdrop-filter: blur(10px); }
         .text-input-field { flex: 1; background: transparent; border: none; outline: none; color: #ffffff; font-size: 13px; padding: 8px 10px; }
         .text-input-field::placeholder { color: #444444; transition: color 0.3s ease; }
         
@@ -39,13 +64,21 @@
         
         .ai-tag { position: absolute; font-size: 11px; color: #888888; transform: translate(-50%, -50%); opacity: 0; animation: floatAndFade 4s linear forwards; font-weight: bold; white-space: nowrap; z-index: 1.8; pointer-events: none; }
         
+        /* Оригинальные анимации вращения */
+        @keyframes rotate-core { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        @keyframes rotate-core-reverse { 0% { transform: rotate(360deg); } 100% { transform: rotate(0deg); } }
         @keyframes floatAndFade { 0% { opacity: 0; transform: translate(-50%, -50%) translateY(8px); } 15% { opacity: 0.9; } 85% { opacity: 0.5; } 100% { opacity: 0; transform: translate(-50%, -50%) translateY(-15px); } }
         @keyframes pulseGlow { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.1); opacity: 0.7; } }
     </style>
 </head>
 <body>
-    <div id="canvas-container"><canvas id="coreCanvas"></canvas></div>
+    <!-- Контейнер и та самая оригинальная сфера с главного экрана -->
+    <div id="sphere-viewport">
+        <div class="core-sphere" id="mainCoreSphere"></div>
+    </div>
+    
     <div id="floating-logs"></div>
+    
     <div class="ui-layer">
         <div class="interactive" style="width: 100%;">
             <header>
@@ -71,112 +104,16 @@
         </div>
     </div>
     <script>
-        const canvas = document.getElementById('coreCanvas');
-        const ctx = canvas.getContext('2d');
-        function resizeCanvas() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
-        window.addEventListener('resize', resizeCanvas); resizeCanvas();
-
-        let currentCenter = { x: canvas.width / 2, y: canvas.height / 2 };
-        let targetCenter = { x: canvas.width / 2, y: canvas.height / 2 };
-        let currentRadius = 140; let targetRadius = 140;
-        let appState = 0; let audioModifier = 0; let isRecording = false;
-
-        // Построение оригинальной сетки сферы (Тонкие контурные линии)
-        const rings = 14; const segments = 22; const spherePoints = [];
-        for (let i = 0; i <= rings; i++) {
-            let phi = (i / rings) * Math.PI; 
-            for (let j = 0; j < segments; j++) {
-                let theta = (j / segments) * Math.PI * 2; 
-                spherePoints.push({
-                    x: Math.sin(phi) * Math.cos(theta), y: Math.cos(phi), z: Math.sin(phi) * Math.sin(theta),
-                    baseX: Math.sin(phi) * Math.cos(theta), baseY: Math.cos(phi), baseZ: Math.sin(phi) * Math.sin(theta)
-                });
-            }
-        }
-
-        let angleX = 0.003; let angleY = 0.005; let globalPhase = 0;
-        function drawCyberCore() {
-            if (appState === 1) { targetCenter.y = window.innerHeight * 0.32; targetRadius = 85; } 
-            else { targetCenter.y = window.innerHeight * 0.52; targetRadius = 145; }
-            targetCenter.x = window.innerWidth / 2;
-
-            currentCenter.x += (targetCenter.x - currentCenter.x) * 0.1;
-            currentCenter.y += (targetCenter.y - currentCenter.y) * 0.1;
-            currentRadius += (targetRadius - currentRadius) * 0.1;
-
-            ctx.fillStyle = '#000000'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-            globalPhase += 0.025;
-            
-            // Динамическая пульсация радиуса сферы от голоса пользователя
-            let dynamicRadius = currentRadius + (audioModifier * 30);
-
-            let cosX = Math.cos(angleX); let sinX = Math.sin(angleX);
-            let cosY = Math.cos(angleY); let sinY = Math.sin(angleY);
-
-            spherePoints.forEach((p, idx) => {
-                let wave = Math.sin(globalPhase + idx * 0.15) * (0.02 + audioModifier * 0.08);
-                let r = 1.0 + wave * 0.3;
-                let x1 = p.baseX * r; let y1 = p.baseY * r; let z1 = p.baseZ * r;
-                let x2 = x1 * cosY - z1 * sinY; let z2 = z1 * cosY + x1 * sinY;
-                let y3 = y1 * cosX - z2 * sinX; let z3 = z2 * cosX + y1 * sinX;
-                p.x = x2; p.y = y3; p.z = z3;
-            });
-
-            angleX += 0.001 + (audioModifier * 0.004);
-            angleY += 0.002 + (audioModifier * 0.006);
-            spherePoints.sort((a, b) => b.z - a.z);
-
-            ctx.save();
-            // Нативное размытие для монохромного эффекта свечения граней
-            ctx.shadowBlur = 10;
-            ctx.shadowColor = 'rgba(255, 255, 255, 0.4)';
-
-            for (let i = 0; i < rings - 1; i++) {
-                for (let j = 0; j < segments; j++) {
-                    let idx1 = i * segments + j;
-                    let idx2 = i * segments + ((j + 1) % segments);
-                    let idx3 = (i + 1) * segments + ((j + 1) % segments);
-                    let idx4 = (i + 1) * segments + j;
-
-                    let p1 = spherePoints[idx1]; let p2 = spherePoints[idx2];
-                    let p3 = spherePoints[idx3]; let p4 = spherePoints[idx4];
-
-                    // ОТСЕЧЕНИЕ ЗАДНЕЙ СТОРОНЫ (Z > 0) — Исключает хаос линий
-                    if (p1.z <= 0.0) continue;
-
-                    let sx1 = currentCenter.x + p1.x * dynamicRadius; let sy1 = currentCenter.y + p1.y * dynamicRadius;
-                    let sx2 = currentCenter.x + p2.x * dynamicRadius; let sy2 = currentCenter.y + p2.y * dynamicRadius;
-                    let sx3 = currentCenter.x + p3.x * dynamicRadius; let sy3 = currentCenter.y + p3.y * dynamicRadius;
-                    let sx4 = currentCenter.x + p4.x * dynamicRadius; let sy4 = currentCenter.y + p4.y * dynamicRadius;
-
-                    let opacity = 0.15 + (p1.z * 0.8);
-
-                    ctx.beginPath();
-                    ctx.moveTo(sx1, sy1); ctx.lineTo(sx2, sy2); ctx.lineTo(sx3, sy3); ctx.lineTo(sx4, sy4);
-                    ctx.closePath();
-
-                    // Монохромный радиальный градиент
-                    let tileGlow = ctx.createRadialGradient(sx1, sy1, 2, sx1, sy1, dynamicRadius * 0.4);
-                    tileGlow.addColorStop(0, `rgba(255, 255, 255, ${opacity * 0.15})`);
-                    tileGlow.addColorStop(1, 'rgba(10, 10, 10, 0.9)');
-                    
-                    ctx.fillStyle = tileGlow; ctx.fill();
-                    // Тонкие белые/серые контурные линии
-                    ctx.strokeStyle = `rgba(255, 255, 255, ${opacity * 0.4})`;
-                    ctx.lineWidth = 1.0;
-                    ctx.stroke();
-                }
-            }
-            ctx.restore();
-            requestAnimationFrame(drawCyberCore);
-        }
-        drawCyberCore();
         // Базовые переменные стейта диалога
         let qcuBalance = 1000; 
         let progress = 0; 
         let currentRound = 0; 
         const maxRounds = 5;
         
+        let isRecording = false;
+        let voiceInterval = null;
+        let appState = 0;
+
         const aiQuestions = [
             "Контур синхронизирован. Раунд 1: Опишите ваше самое раннее детское воспоминание. Какая эмоция там доминирует?",
             "Паттерны приняты. Раунд 2: Если бы вы могли навсегда стереть один свой поступок из прошлого, что бы это было и почему?",
@@ -192,15 +129,21 @@
             "[Списание: -50 QCU]"
         ];
 
-        // Навигация и фокус инпута
+        // Навигация
         function returnToDashboard() { 
             window.location.href = "./dashboard.html"; 
         }
         
+        // Управление положением сферы (сдвиг под экранную клавиатуру смартфона)
         function setInputState(isFocused) { 
-            // Сдвигаем ядро вверх, только если не идет запись голоса
             if (!isRecording) {
-                appState = isFocused ? 1 : 0; 
+                appState = isFocused ? 1 : 0;
+                const viewport = document.getElementById('sphere-viewport');
+                if (appState === 1) {
+                    viewport.style.transform = 'translateY(-20vh) scale(0.65)';
+                } else {
+                    viewport.style.transform = 'translateY(2vh) scale(1)';
+                }
             }
         }
 
@@ -209,38 +152,42 @@
             const container = document.getElementById('aiQuestionText');
             container.innerHTML = ""; 
             let i = 0; 
-            audioModifier = 0.2;
             const chars = Array.from(text);
             
             const interval = setInterval(() => {
                 if (i < chars.length) {
                     container.textContent += chars[i]; 
                     i++;
-                    audioModifier = 0.15 + Math.random() * 0.15;
                 } else { 
                     clearInterval(interval); 
-                    audioModifier = 0; 
                 }
             }, 25);
         }
-
         // Гарантированный сброс состояния интерфейса к дефолту (Исправление бага)
         function resetInputUI() {
             const inputField = document.getElementById('textInputField');
             const micBtn = document.getElementById('micBtn');
+            const sphere = document.getElementById('mainCoreSphere');
             
             isRecording = false;
-            if (this.voiceInterval) {
-                clearInterval(this.voiceInterval);
+            if (voiceInterval) {
+                clearInterval(voiceInterval);
             }
             
             micBtn.classList.remove('recording');
             inputField.value = "";
             inputField.placeholder = "Введите ответ или активируйте микрофон...";
-            audioModifier = 0;
-            appState = 0; // Возвращаем ядро в центр
+            
+            // Сброс сферы в исходное состояние
+            if (sphere) sphere.style.transform = 'scale(1)';
+            
+            appState = 0; 
+            const viewport = document.getElementById('sphere-viewport');
+            if (viewport) viewport.style.transform = 'translateY(2vh) scale(1)';
+            
             inputField.blur();
         }
+
         // Отправка текстового ответа
         function submitTextInput() {
             const input = document.getElementById('textInputField');
@@ -253,25 +200,28 @@
             advanceCalibration();
         }
 
-        // Управление голосовым вводом (Ядро остается в центре и пульсирует)
+        // Управление голосовым вводом с плавной пульсацией CSS-сферы
         function toggleVoiceInput() {
             if (qcuBalance < 50) return;
             
             const btn = document.getElementById('micBtn');
             const inputField = document.getElementById('textInputField');
+            const sphere = document.getElementById('mainCoreSphere');
             
             if (!isRecording) {
-                // Активация записи
-                isRecording = true; 
+                isRecording = true;
                 btn.classList.add('recording');
                 inputField.placeholder = "[ ИДЕТ ЗАПИСЬ ГОЛОСА... ]";
                 
-                this.voiceInterval = setInterval(() => {
-                    audioModifier = Math.random() * 0.7;
+                // Интервал для изменения масштаба сферы от псевдо-звука
+                voiceInterval = setInterval(() => {
+                    let audioModifier = 0.85 + Math.random() * 0.3; // Коэффициент пульсации
+                    if (sphere) {
+                        sphere.style.transform = `scale(${audioModifier})`;
+                    }
                     if (Math.random() > 0.7) spawnFloatingTag();
                 }, 100);
             } else {
-                // Выключение записи и сброс интерфейса
                 spendQCU(50);
                 resetInputUI();
                 advanceCalibration();
@@ -294,19 +244,19 @@
                 
                 if (currentRound < maxRounds) {
                     setTimeout(() => { 
-                        typeAIResponse(aiQuestions[currentRound]); 
+                        typeAIResponse(aiQuestions[currentRound]);
                     }, 1000);
                 } else {
                     document.getElementById('progressPercent').innerText = "100% ФИКСАЦИЯ";
                     typeAIResponse("Слепок сознания успешно кристаллизован. Перенаправление в Личный Кабинет.");
                     setTimeout(() => { 
-                        window.location.href = "./dashboard.html"; 
+                        window.location.href = "./dashboard.html";
                     }, 3500);
                 }
             }
         }
 
-        // Появление плавающих неоновых тегов строго вокруг текущего центра сферы (Монохром)
+        // Появление плавающих строго монохромных тегов вокруг оригинальной сферы
         function spawnFloatingTag() {
             const container = document.getElementById('floating-logs');
             if (!container) return;
@@ -315,35 +265,37 @@
             tag.className = 'ai-tag';
             tag.innerHTML = aiMarkers[Math.floor(Math.random() * aiMarkers.length)];
             
-            // Настройка строгого монохромного свечения тегов
-            tag.style.textShadow = '0 0 8px rgba(255,255,255,0.4), 0 0 15px rgba(255,255,255,0.2)';
+            tag.style.textShadow = '0 0 8px rgba(255,255,255,0.4), 0 0 15px rgba(255,255,255,0.1)';
             tag.style.color = '#ffffff';
             
             const angle = Math.random() * Math.PI * 2; 
-            const distance = 90 + Math.random() * 50;
+            const distance = 100 + Math.random() * 50;
             
-            // Расчет координат от реального центра холста
-            let x = currentCenter.x + Math.cos(angle) * distance;
-            let y = currentCenter.y + Math.sin(angle) * distance;
+            // Расчет от центра экрана с учетом смещения
+            let x = (window.innerWidth / 2) + Math.cos(angle) * distance;
+            let y = (window.innerHeight * (appState === 1 ? 0.32 : 0.52)) + Math.sin(angle) * distance;
             
             tag.style.left = `${x}px`; 
             tag.style.top = `${y}px`;
             
-            container.appendChild(tag); 
+            container.appendChild(tag);
             
             setTimeout(() => { 
-                tag.remove(); 
+                tag.remove();
             }, 4000);
         }
 
         // Автоматический старт первого раунда
-        setTimeout(() => {
-            typeAIResponse(aiQuestions[0]); 
-            currentRound = 1;
-            document.getElementById('currentStageText').innerText = `РАУНД ${currentRound}/${maxRounds}`;
-            document.getElementById('progressPercent').innerText = "20.0%";
-            document.getElementById('progressBar').style.width = "20%";
-        }, 1000);
+        window.onload = function() {
+            setTimeout(() => {
+                typeAIResponse(aiQuestions[0]); 
+                currentRound = 1;
+                document.getElementById('currentStageText').innerText = `РАУНД ${currentRound}/${maxRounds}`;
+                document.getElementById('progressPercent').innerText = "20.0应用%";
+                document.getElementById('progressPercent').innerText = "20.0%";
+                document.getElementById('progressBar').style.width = "20%";
+            }, 1000);
+        };
     </script>
 </body>
 </html>
