@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>APXe — Контур Калибровки v4.5 (WebGL Core)</title>
+    <title>APXe — Контур Калибровки v4.6 (WebGL Fixed)</title>
     <script src="https://telegram.org"></script>
     <!-- Подключение Three.js для рендеринга живой 3D-сферы -->
     <script src="https://cloudflare.com"></script>
@@ -11,9 +11,9 @@
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Courier New', Courier, monospace; user-select: none; }
         body, html { width: 100%; height: 100%; background-color: #050505; color: #ffffff; overflow: hidden; }
         
-        /* Контейнер для трехмерного WebGL холста */
-        #sphere-viewport { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; transition: all 0.5s cubic-bezier(0.25, 1, 0.5, 1); }
-        #canvas-3d { width: 100%; height: 100%; display: block; }
+        /* Исправленный контейнер и холст WebGL-сцены */
+        #sphere-viewport { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; transition: all 0.5s cubic-bezier(0.25, 1, 0.5, 1); pointer-events: none; }
+        #canvas-3d { width: 100% !important; height: 100% !important; display: block; position: absolute; top: 0; left: 0; }
         #floating-logs { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1.5; pointer-events: none; overflow: hidden; }
         
         /* Стили слоев интерфейса */
@@ -105,9 +105,10 @@
             
             const material = new THREE.PointsMaterial({
                 color: 0xffffff,
-                size: 0.025,
+                size: 0.03,
                 transparent: true,
-                opacity: 0.75,
+                opacity: 0.85,
+                depthWrite: false,
                 blending: THREE.AdditiveBlending
             });
 
@@ -120,7 +121,7 @@
                 color: 0xffffff,
                 wireframe: true,
                 transparent: true,
-                opacity: 0.04
+                opacity: 0.05
             });
             const wireSphere = new THREE.Mesh(wireGeometry, wireMaterial);
             particleSphere.add(wireSphere);
@@ -133,16 +134,18 @@
             requestAnimationFrame(animate3D);
 
             // Мягкое вращение ядра во времени
-            particleSphere.rotation.y += 0.002;
-            particleSphere.rotation.x += 0.001;
+            if (particleSphere) {
+                particleSphere.rotation.y += 0.002;
+                particleSphere.rotation.x += 0.001;
 
-            // Сглаживание интерполяции изменений масштаба клавиатуры и голоса
-            currentSphereScale += (targetSphereScale - currentSphereScale) * 0.1;
-            voiceVolumeModifier += (targetVolumeModifier - voiceVolumeModifier) * 0.2;
+                // Сглаживание интерполяции изменений масштаба клавиатуры и голоса
+                currentSphereScale += (targetSphereScale - currentSphereScale) * 0.1;
+                voiceVolumeModifier += (targetVolumeModifier - voiceVolumeModifier) * 0.2;
 
-            // Применение комплексной трансформации к 3D объекту
-            const finalScale = currentSphereScale * (1.0 + voiceVolumeModifier);
-            particleSphere.scale.set(finalScale, finalScale, finalScale);
+                // Применение комплексной трансформации к 3D объекту
+                const finalScale = currentSphereScale * (1.0 + voiceVolumeModifier);
+                particleSphere.scale.set(finalScale, finalScale, finalScale);
+            }
 
             renderer.render(scene, camera);
         }
@@ -187,10 +190,10 @@
                 appState = isFocused ? 1 : 0;
                 const viewport = document.getElementById('sphere-viewport');
                 if (appState === 1) {
-                    viewport.style.transform = 'translateY(-18vh)';
+                    if (viewport) viewport.style.transform = 'translateY(-18vh)';
                     targetSphereScale = 0.65; // Уменьшаем сферу в Three.js
                 } else {
-                    viewport.style.transform = 'translateY(0vh)';
+                    if (viewport) viewport.style.transform = 'translateY(0vh)';
                     targetSphereScale = 1.0;  // Возвращаем исходный масштаб
                 }
             }
@@ -198,6 +201,7 @@
 
         function typeAIResponse(text) {
             const container = document.getElementById('aiQuestionText');
+            if (!container) return;
             container.innerHTML = ""; 
             let i = 0; 
             const chars = Array.from(text);
@@ -326,7 +330,7 @@
             init3DGraph();
             
             setTimeout(() => {
-                typeAIResponse(aiQuestions[0]); 
+                typeAIResponse(aiQuestions[0]); // Исправлено: передается строка, а не массив
                 currentRound = 1;
                 document.getElementById('currentStageText').innerText = `РАУНД ${currentRound}/${maxRounds}`;
                 document.getElementById('progressPercent').innerText = "20.0%";
